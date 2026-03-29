@@ -10,8 +10,6 @@ from google.genai.errors import ClientError
 from app.core.config import settings
 
 _GEMINI_RATE_LIMIT_RETRIES = 3
-_FILE_READY_TIMEOUT_SEC = 120
-_FILE_READY_POLL_INTERVAL_SEC = 1.0
 
 # Gemini File API + multimodal: correct MIME helps ingestion (esp. m4a/webm).
 _AUDIO_MIME_BY_SUFFIX: dict[str, str] = {
@@ -66,28 +64,8 @@ class AIService:
 
         self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
         # Stable multimodal (incl. audio) on the Gemini API.
-        self.model_name = "gemini-2.0-flash"
+        self.model_name = "gemini-2.5-flash"
 
-    def _wait_until_file_active(self, file_name: str) -> genai_types.File:
-        """Gemini 2.x processes uploads asynchronously; generate_content needs ACTIVE."""
-        deadline = time.monotonic() + _FILE_READY_TIMEOUT_SEC
-        last: genai_types.File | None = None
-        while time.monotonic() < deadline:
-            last = self.client.files.get(name=file_name)
-            state = last.state
-            if state == genai_types.FileState.ACTIVE:
-                return last
-            if state == genai_types.FileState.FAILED:
-                err_msg: str | None = None
-                if last.error is not None:
-                    err_msg = last.error.message
-                raise RuntimeError(
-                    f"Gemini could not process the audio file: {err_msg or 'unknown error'}"
-                )
-            time.sleep(_FILE_READY_POLL_INTERVAL_SEC)
-        raise RuntimeError(
-            "Timed out waiting for uploaded audio to be ready (ACTIVE) on Gemini"
-        )
 
     def process_voice_story(self, audio_file_path: str) -> dict[str, str]:
         _validate_audio_file(audio_file_path)
@@ -102,79 +80,45 @@ class AIService:
             '{"suggested_title":"...","cleaned_text":"..."}'
         )
 
-        uploaded_file_name = ""
-        uploaded_file: Any = None
-        try:
-            mime = _mime_type_for_audio_path(audio_file_path)
-            upload_config = (
-                genai_types.UploadFileConfig(mime_type=mime) if mime else None
-            )
+        mime = _mime_type_for_audio_path(audio_file_path) or "audio/mp3"
+        with open(audio_file_path, "rb") as f:
+            audio_data = f.read()
 
-            for attempt in range(_GEMINI_RATE_LIMIT_RETRIES):
-                try:
-                    uploaded_file = self.client.files.upload(
-                        file=audio_file_path,
-                        config=upload_config,
+        audio_part = genai_types.Part.from_bytes(data=audio_data, mime_type=mime)
+
+        response = None
+        for attempt in range(_GEMINI_RATE_LIMIT_RETRIES):
+            try:
+                print("DEBUG: Sending audio to Gemini 2.5 Flash...", flush=True)
+                # Order: audio first, then instructions (multimodal convention).
+                response = self.client.models.generate_content(
+                    model=self.model_name,
+                    contents=[audio_part, prompt],
+                    config=genai_types.GenerateContentConfig(
+                        response_mime_type="application/json"
+                    ),
+                )
+                print("DEBUG: Gemini response received!", flush=True)
+                break
+            except ClientError as exc:
+                if _is_too_many_requests(exc):
+                    delay = _rate_limit_delay_seconds(attempt)
+                    print(
+                        "Warning: Gemini API Too Many Requests (rate limit). "
+                        f"Wait ~{delay:.0f}s, then retrying "
+                        f"({attempt + 1}/{_GEMINI_RATE_LIMIT_RETRIES})...",
+                        flush=True,
                     )
-                    uploaded_file_name = uploaded_file.name or ""
-                    break
-                except ClientError as exc:
-                    if _is_too_many_requests(exc):
-                        delay = _rate_limit_delay_seconds(attempt)
-                        print(
-                            "Warning: Gemini API Too Many Requests (rate limit). "
-                            f"Wait ~{delay:.0f}s, then retrying "
-                            f"({attempt + 1}/{_GEMINI_RATE_LIMIT_RETRIES})...",
-                            flush=True,
-                        )
-                        if attempt < _GEMINI_RATE_LIMIT_RETRIES - 1:
-                            time.sleep(delay)
-                            continue
-                        raise GeminiRateLimitError(
-                            "Gemini file upload rate limited after retries"
-                        ) from exc
-                    raise RuntimeError("Gemini file upload failed") from exc
+                    if attempt < _GEMINI_RATE_LIMIT_RETRIES - 1:
+                        time.sleep(delay)
+                        continue
+                    raise GeminiRateLimitError(
+                        "Gemini generate_content rate limited after retries"
+                    ) from exc
+                raise RuntimeError("Gemini audio processing failed") from exc
 
-            if not uploaded_file_name:
-                raise RuntimeError("Gemini upload did not return a file name")
-
-            # Wait for server-side processing so multimodal generate_content succeeds.
-            uploaded_file = self._wait_until_file_active(uploaded_file_name)
-
-            response = None
-            for attempt in range(_GEMINI_RATE_LIMIT_RETRIES):
-                try:
-                    # Order: audio first, then instructions (multimodal convention).
-                    response = self.client.models.generate_content(
-                        model=self.model_name,
-                        contents=[uploaded_file, prompt],
-                    )
-                    break
-                except ClientError as exc:
-                    if _is_too_many_requests(exc):
-                        delay = _rate_limit_delay_seconds(attempt)
-                        print(
-                            "Warning: Gemini API Too Many Requests (rate limit). "
-                            f"Wait ~{delay:.0f}s, then retrying "
-                            f"({attempt + 1}/{_GEMINI_RATE_LIMIT_RETRIES})...",
-                            flush=True,
-                        )
-                        if attempt < _GEMINI_RATE_LIMIT_RETRIES - 1:
-                            time.sleep(delay)
-                            continue
-                        raise GeminiRateLimitError(
-                            "Gemini generate_content rate limited after retries"
-                        ) from exc
-                    raise RuntimeError("Gemini audio processing failed") from exc
-
-            if response is None:
-                raise RuntimeError("Gemini returned no response")
-        finally:
-            if uploaded_file_name:
-                try:
-                    self.client.files.delete(name=uploaded_file_name)
-                except Exception:
-                    pass
+        if response is None:
+            raise RuntimeError("Gemini returned no response")
 
         raw_output = (response.text or "").strip()
         if not raw_output:

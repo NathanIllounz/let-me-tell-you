@@ -60,6 +60,16 @@ async def upload_audio(file: UploadFile = File(...)) -> dict[str, str]:
             ) from ai_exc
 
         print("Story generated successfully", flush=True)
+
+        # Save to Supabase stories table
+        client.table("stories").insert({
+            "title": result["suggested_title"],
+            "refined_story": result["cleaned_text"],
+            "audio_path": object_path,
+        }).execute()
+
+        print("Success: Story saved to Supabase Table.", flush=True)
+
         return {
             "object_path": object_path,
             "title": result["suggested_title"],
