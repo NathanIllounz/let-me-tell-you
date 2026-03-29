@@ -71,13 +71,13 @@ class AIService:
         _validate_audio_file(audio_file_path)
 
         prompt = (
-            "You are a professional biographer. Listen to this audio of an elderly "
-            "person telling a life story. Transcribe it accurately, but remove "
-            "stutters, long pauses, and filler words. Preserve their authentic "
-            "voice, emotion, and any cultural slang (Hebrew/French/English). "
-            "Output a beautiful, titled story in the original language.\n\n"
-            "Return valid JSON with exactly these keys:\n"
-            '{"suggested_title":"...","cleaned_text":"..."}'
+            "You are a world-class memoir ghostwriter. Your goal is to transform raw, rambling "
+            "speech into a polished, first-person narrative memoir. Strictly remove all filler "
+            "words, self-corrections (e.g., 'it was 85, no 86'), and verbal stumbles. Combine "
+            "repetitive thoughts into elegant sentences. Focus on the sensory details and "
+            "emotions. The final output should read like a published book, preserving the "
+            "speaker's heart but removing the 'messiness' of spoken conversation. Return valid "
+            "JSON with keys: 'suggested_title' and 'cleaned_text'."
         )
 
         mime = _mime_type_for_audio_path(audio_file_path) or "audio/mp3"
@@ -116,6 +116,66 @@ class AIService:
                         "Gemini generate_content rate limited after retries"
                     ) from exc
                 raise RuntimeError("Gemini audio processing failed") from exc
+
+        if response is None:
+            raise RuntimeError("Gemini returned no response")
+
+        raw_output = (response.text or "").strip()
+        if not raw_output:
+            raise RuntimeError("Gemini returned an empty response")
+
+        try:
+            parsed = self._parse_json_output(raw_output)
+        except Exception as exc:  # noqa: BLE001
+            raise RuntimeError("Gemini response format is invalid JSON") from exc
+
+        suggested_title = str(parsed.get("suggested_title", "")).strip()
+        cleaned_text = str(parsed.get("cleaned_text", "")).strip()
+        if not suggested_title or not cleaned_text:
+            raise RuntimeError("Gemini response is missing required fields")
+
+        return {"suggested_title": suggested_title, "cleaned_text": cleaned_text}
+
+    def refine_text_story(self, text: str) -> dict[str, str]:
+        prompt = (
+            "You are a world-class memoir ghostwriter. Your goal is to transform raw, rambling "
+            "speech into a polished, first-person narrative memoir. Strictly remove all filler "
+            "words, self-corrections (e.g., 'it was 85, no 86'), and verbal stumbles. Combine "
+            "repetitive thoughts into elegant sentences. Focus on the sensory details and "
+            "emotions. The final output should read like a published book, preserving the "
+            "speaker's heart but removing the 'messiness' of spoken conversation. Return valid "
+            "JSON with keys: 'suggested_title' and 'cleaned_text'."
+        )
+
+        response = None
+        for attempt in range(_GEMINI_RATE_LIMIT_RETRIES):
+            try:
+                print("DEBUG: Sending text to Gemini 2.5 Flash...", flush=True)
+                response = self.client.models.generate_content(
+                    model=self.model_name,
+                    contents=[text, prompt],
+                    config=genai_types.GenerateContentConfig(
+                        response_mime_type="application/json"
+                    ),
+                )
+                print("DEBUG: Gemini response received!", flush=True)
+                break
+            except ClientError as exc:
+                if _is_too_many_requests(exc):
+                    delay = _rate_limit_delay_seconds(attempt)
+                    print(
+                        "Warning: Gemini API Too Many Requests (rate limit). "
+                        f"Wait ~{delay:.0f}s, then retrying "
+                        f"({attempt + 1}/{_GEMINI_RATE_LIMIT_RETRIES})...",
+                        flush=True,
+                    )
+                    if attempt < _GEMINI_RATE_LIMIT_RETRIES - 1:
+                        time.sleep(delay)
+                        continue
+                    raise GeminiRateLimitError(
+                        "Gemini generate_content rate limited after retries"
+                    ) from exc
+                raise RuntimeError("Gemini text processing failed") from exc
 
         if response is None:
             raise RuntimeError("Gemini returned no response")

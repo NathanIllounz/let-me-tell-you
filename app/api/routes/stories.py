@@ -1,8 +1,10 @@
 import tempfile
 import traceback
 from pathlib import Path
+from typing import Any
 
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
+from pydantic import BaseModel
 
 from app.services.ai_service import AIService, GeminiRateLimitError
 from app.services.supabase_service import get_supabase_client, upload_story_audio
@@ -135,3 +137,52 @@ async def process_story(file: UploadFile = File(...)) -> dict[str, str]:
         "suggested_title": result["suggested_title"],
         "cleaned_text": result["cleaned_text"],
     }
+
+class ManualStoryRequest(BaseModel):
+    title: str
+    content: str
+    use_ai_refinement: bool = False
+
+@router.post("/manual")
+async def create_manual_story(request: ManualStoryRequest) -> dict[str, Any]:
+    client = get_supabase_client()
+    
+    title = request.title
+    refined_story = request.content
+    
+    if request.use_ai_refinement:
+        print("Starting manual story Gemini refinement...", flush=True)
+        try:
+            ai_service = AIService()
+            result = ai_service.refine_text_story(request.content)
+            title = result["suggested_title"]
+            refined_story = result["cleaned_text"]
+            print("Manual story refined successfully", flush=True)
+        except GeminiRateLimitError:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="The AI service is temporarily busy. Please wait a few seconds and try again.",
+            ) from None
+        except Exception as exc:
+            print(f"Gemini processing failed: {exc}", flush=True)
+            traceback.print_exc()
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Story generation failed. Check server logs for the full error.",
+            ) from exc
+
+    # Save to Supabase stories table
+    try:
+        data = client.table("stories").insert({
+            "title": title,
+            "refined_story": refined_story,
+            "audio_path": "manual_entry",
+        }).execute()
+        print("Success: Manual story saved to Supabase Table.", flush=True)
+        return data.data[0] if data.data else {}
+    except Exception as exc:
+        print(f"Failed to save manual story to database: {exc}", flush=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Could not save story to database. Check server logs.",
+        ) from exc
