@@ -30,6 +30,6 @@ def upload_story_audio(
     client.storage.from_(bucket_name).upload(
         object_path,
         file_obj,
-        file_options={"upsert": "false"},
+        file_options={"upsert": False},
     )
     return object_path
