@@ -33,3 +33,16 @@ def upload_story_audio(
         file_options={"upsert": False},
     )
     return object_path
+
+def get_public_audio_url(client: Client, object_path: str, bucket_name: str = "stories-audio") -> str:
+    """Returns the public URL for an audio file stored in Supabase."""
+    return client.storage.from_(bucket_name).get_public_url(object_path)
+
+def get_signed_url(client: Client, file_path: str, bucket_name: str = "stories-audio") -> str:
+    """Returns a temporary signed URL (valid for 3600 seconds) for an audio file."""
+    res = client.storage.from_(bucket_name).create_signed_url(file_path, 3600)
+    if isinstance(res, dict) and "signedURL" in res:
+        return res["signedURL"]
+    if hasattr(res, "signed_url"):
+        return res.signed_url
+    return str(res)

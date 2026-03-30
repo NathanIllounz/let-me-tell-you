@@ -7,14 +7,14 @@ from fastapi import APIRouter, File, HTTPException, UploadFile, status
 from pydantic import BaseModel
 
 from app.services.ai_service import AIService, GeminiRateLimitError
-from app.services.supabase_service import get_supabase_client, upload_story_audio
+from app.services.supabase_service import get_supabase_client, upload_story_audio, get_signed_url
 
 
 router = APIRouter(prefix="/stories", tags=["stories"])
 
 
 @router.post("/upload-audio")
-async def upload_audio(file: UploadFile = File(...)) -> dict[str, str]:
+async def upload_audio(file: UploadFile = File(...)) -> dict[str, Any]:
     if not file.filename:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -68,14 +68,17 @@ async def upload_audio(file: UploadFile = File(...)) -> dict[str, str]:
             "title": result["suggested_title"],
             "refined_story": result["cleaned_text"],
             "audio_path": object_path,
+            "refined_audio_path": None,
         }).execute()
 
         print("Success: Story saved to Supabase Table.", flush=True)
 
+        signed_url = get_signed_url(client, object_path)
         return {
-            "object_path": object_path,
             "title": result["suggested_title"],
             "refined_story": result["cleaned_text"],
+            "audio_path": signed_url,
+            "refined_audio_path": None,
         }
     except HTTPException:
         raise
@@ -141,7 +144,7 @@ async def process_story(file: UploadFile = File(...)) -> dict[str, str]:
 class ManualStoryRequest(BaseModel):
     title: str
     content: str
-    use_ai_refinement: bool = False
+    should_refine: bool = False
 
 @router.post("/manual")
 async def create_manual_story(request: ManualStoryRequest) -> dict[str, Any]:
@@ -150,7 +153,7 @@ async def create_manual_story(request: ManualStoryRequest) -> dict[str, Any]:
     title = request.title
     refined_story = request.content
     
-    if request.use_ai_refinement:
+    if request.should_refine:
         print("Starting manual story Gemini refinement...", flush=True)
         try:
             ai_service = AIService()
@@ -172,11 +175,13 @@ async def create_manual_story(request: ManualStoryRequest) -> dict[str, Any]:
             ) from exc
 
     # Save to Supabase stories table
+    print("Saving manual story to Supabase...", flush=True)
     try:
         data = client.table("stories").insert({
             "title": title,
             "refined_story": refined_story,
             "audio_path": "manual_entry",
+            "refined_audio_path": None,
         }).execute()
         print("Success: Manual story saved to Supabase Table.", flush=True)
         return data.data[0] if data.data else {}
@@ -185,4 +190,28 @@ async def create_manual_story(request: ManualStoryRequest) -> dict[str, Any]:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Could not save story to database. Check server logs.",
+        ) from exc
+
+@router.get("")
+async def get_stories() -> list[dict[str, Any]]:
+    client = get_supabase_client()
+    try:
+        response = client.table("stories").select("id, created_at, title, refined_story, audio_path, refined_audio_path").order("created_at", desc=True).execute()
+        
+        stories = response.data
+        for story in stories:
+            path_val = story.get("audio_path")
+            if path_val and path_val != "manual_entry":
+                # Fix any mistakenly saved public URLs by extracting just the filename
+                if path_val.startswith("http"):
+                    path_val = path_val.split("/")[-1]
+                story["audio_path"] = get_signed_url(client, path_val)
+                
+        print(f"SUCCESS: Fetched {len(stories)} stories with signed URLs.", flush=True)
+        return stories
+    except Exception as exc:
+        print(f"Failed to fetch all stories from database: {exc}", flush=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Could not fetch stories from database. Check server logs.",
         ) from exc
