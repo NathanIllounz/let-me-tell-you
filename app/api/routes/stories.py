@@ -145,6 +145,8 @@ class ManualStoryRequest(BaseModel):
     title: str
     content: str
     should_refine: bool = False
+    story_content: str | None = None
+    user_id: str | None = None
 
 @router.post("/manual")
 async def create_manual_story(request: ManualStoryRequest) -> dict[str, Any]:
@@ -152,6 +154,7 @@ async def create_manual_story(request: ManualStoryRequest) -> dict[str, Any]:
     
     title = request.title
     refined_story = request.content
+    user_id = request.user_id
     
     if request.should_refine:
         print("Starting manual story Gemini refinement...", flush=True)
@@ -176,12 +179,14 @@ async def create_manual_story(request: ManualStoryRequest) -> dict[str, Any]:
 
     # Save to Supabase stories table
     print("Saving manual story to Supabase...", flush=True)
+    print(f"DEBUG: Saving story for user: {user_id}", flush=True)
     try:
         data = client.table("stories").insert({
             "title": title,
             "refined_story": refined_story,
             "audio_path": "manual_entry",
             "refined_audio_path": None,
+            "user_id": user_id,
         }).execute()
         print("Success: Manual story saved to Supabase Table.", flush=True)
         return data.data[0] if data.data else {}
@@ -193,10 +198,10 @@ async def create_manual_story(request: ManualStoryRequest) -> dict[str, Any]:
         ) from exc
 
 @router.get("")
-async def get_stories() -> list[dict[str, Any]]:
+async def get_stories(user_id: str) -> list[dict[str, Any]]:
     client = get_supabase_client()
     try:
-        response = client.table("stories").select("id, created_at, title, refined_story, audio_path, refined_audio_path").order("created_at", desc=True).execute()
+        response = client.table("stories").select("id, created_at, title, refined_story, audio_path, refined_audio_path, user_id").or_(f"user_id.eq.{user_id},user_id.is.null").order("created_at", desc=True).execute()
         
         stories = response.data
         for story in stories:

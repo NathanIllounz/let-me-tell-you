@@ -9,10 +9,11 @@ from app.core.config import settings
 
 
 def get_supabase_client() -> Client:
-    if not settings.SUPABASE_URL or not settings.SUPABASE_ANON_KEY:
+    client_key = settings.SUPABASE_SERVICE_ROLE_KEY or settings.SUPABASE_ANON_KEY
+    if not settings.SUPABASE_URL or not client_key:
         raise ValueError("Supabase configuration is missing in .env")
 
-    return create_client(settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY)
+    return create_client(settings.SUPABASE_URL, client_key)
 
 
 def upload_story_audio(
