@@ -1,13 +1,35 @@
 import { useEffect, useState } from 'react';
 import { BookOpen, LogOut, User, Settings } from 'lucide-react';
 import { supabase } from './supabaseClient';
+import api from './api';
 import Auth from './components/Auth';
 import Gallery from './components/Gallery';
 import StoryDetail from './components/StoryDetail';
+import SettingsModal from './components/SettingsModal';
+import FamilyGroups from './components/FamilyGroups';
 
 function App() {
   const [session, setSession] = useState(null);
   const [selectedStory, setSelectedStory] = useState(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const [groups, setGroups] = useState([]);
+  const [showGroupsModal, setShowGroupsModal] = useState(false);
+  const [activeView, setActiveView] = useState('all'); // 'all', 'my_memories', or group_id
+  const [easyMode, setEasyMode] = useState(false);
+
+  const fetchGroups = async () => {
+    if (!session?.user?.id) return;
+    try {
+      const response = await api.get(`/groups?user_id=${session.user.id}`);
+      setGroups(response.data);
+    } catch (err) {
+      console.error("Failed to fetch groups", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchGroups();
+  }, [session?.user?.id]);
 
   useEffect(() => {
     // Get the initial session
@@ -29,7 +51,7 @@ function App() {
   }, []);
 
   return (
-    <div className="bg-stone-50 min-h-screen text-stone-800 font-sans">
+    <div className={`bg-stone-50 min-h-screen text-stone-800 font-sans transition-all duration-300 ${easyMode ? 'text-lg' : ''}`}>
       <header className="bg-white border-b border-stone-200 shadow-sm sticky top-0 z-10 py-4 px-6 md:px-12 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <BookOpen className="text-stone-600 w-6 h-6" />
@@ -43,6 +65,15 @@ function App() {
         
         {session && (
           <div className="flex items-center gap-4 sm:gap-6">
+            <button 
+              onClick={() => setEasyMode(!easyMode)}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-colors ${easyMode ? 'bg-indigo-100 border-indigo-200 text-indigo-700 shadow-inner' : 'bg-stone-50 border-stone-200 text-stone-600 hover:bg-stone-100 shadow-sm'}`}
+              title="Toggle Easy Mode"
+            >
+              <span className="text-xl">👓</span>
+              <span className="hidden sm:inline font-bold">Easy Mode</span>
+            </button>
+            
             <div className="flex items-center gap-2">
               <div className="bg-stone-100 p-1.5 rounded-full border border-stone-200 hidden sm:block">
                 <User className="w-4 h-4 text-stone-500" />
@@ -50,7 +81,11 @@ function App() {
               <span className="text-sm font-medium text-stone-600 truncate max-w-[150px] sm:max-w-[200px]">
                 {session.user.user_metadata?.full_name || session.user.email}
               </span>
-              <button className="text-stone-400 hover:text-stone-700 transition-colors ml-1 p-1.5 hover:bg-stone-100 rounded-full" title="Settings">
+              <button 
+                onClick={() => setShowSettings(true)}
+                className="text-stone-400 hover:text-stone-700 transition-colors ml-1 p-1.5 hover:bg-stone-100 rounded-full" 
+                title="Settings"
+              >
                 <Settings className="w-4 h-4" />
               </button>
             </div>
@@ -73,9 +108,92 @@ function App() {
           <Auth supabase={supabase} />
         </div>
       ) : selectedStory ? (
-        <StoryDetail story={selectedStory} onBack={() => setSelectedStory(null)} />
+        <StoryDetail 
+          story={selectedStory} 
+          session={session}
+          groups={groups}
+          easyMode={easyMode}
+          onBack={() => { setSelectedStory(null); fetchGroups(); }} 
+          onUpdate={(updated) => setSelectedStory(updated)}
+        />
       ) : (
-        <Gallery session={session} onSelectStory={setSelectedStory} />
+        <div className="flex max-w-7xl mx-auto w-full">
+          <aside className="hidden md:block w-64 border-r border-stone-200 min-h-[calc(100vh-80px)] p-6 bg-stone-50/50">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="font-bold text-stone-800 font-serif">My Circles</h3>
+              <button 
+                onClick={() => setShowGroupsModal(true)}
+                className="w-7 h-7 rounded-full bg-stone-200 hover:bg-stone-300 flex items-center justify-center text-stone-600 transition-colors"
+                title="Add/Join Circle"
+              >
+                +
+              </button>
+            </div>
+            
+            <ul className="space-y-2">
+              <li 
+                onClick={() => setActiveView('all')}
+                className={`cursor-pointer px-3 py-2.5 rounded-lg shadow-sm text-sm font-medium flex items-center gap-2 transition-colors ${activeView === 'all' ? 'bg-stone-800 text-white' : 'bg-white border border-stone-200 text-stone-700 hover:bg-stone-50'}`}
+              >
+                <BookOpen className="w-4 h-4" />
+                All Stories
+              </li>
+              <li 
+                onClick={() => setActiveView('my_memories')}
+                className={`cursor-pointer px-3 py-2.5 rounded-lg shadow-sm text-sm font-medium flex items-center gap-2 transition-colors ${activeView === 'my_memories' ? 'bg-indigo-600 text-white' : 'bg-white border border-stone-200 text-stone-700 hover:bg-stone-50'}`}
+              >
+                <User className="w-4 h-4" />
+                My Memories
+              </li>
+              
+              <div className="pt-4 pb-2 text-xs font-bold text-stone-400 uppercase tracking-wider">Circles</div>
+              
+              {groups.map(g => (
+                <li 
+                  key={g.id} 
+                  onClick={() => setActiveView(g.id)}
+                  className={`cursor-pointer px-3 py-2.5 rounded-lg shadow-sm text-sm font-medium flex items-center gap-2 transition-colors ${activeView === g.id ? 'bg-emerald-600 text-white' : 'bg-white border border-stone-200 text-stone-700 hover:bg-stone-50'}`}
+                >
+                  <span className={`w-2 h-2 rounded-full ${activeView === g.id ? 'bg-emerald-300' : 'bg-emerald-400'}`}></span>
+                  {g.name}
+                </li>
+              ))}
+              {groups.length === 0 && (
+                <li className="text-sm text-stone-500 italic text-center py-4 border border-dashed border-stone-200 rounded-lg">No circles yet.</li>
+              )}
+            </ul>
+            <button 
+              onClick={() => setShowGroupsModal(true)}
+              className="mt-4 w-full py-2 border border-dashed border-stone-300 rounded-lg text-stone-500 text-sm hover:bg-stone-100 transition-colors"
+            >
+              + Join or Create
+            </button>
+          </aside>
+          
+          <div className="flex-1 w-full min-w-0">
+            <Gallery 
+              session={session} 
+              onSelectStory={setSelectedStory} 
+              groups={groups} 
+              onGroupRefresh={fetchGroups} 
+              activeView={activeView}
+              setActiveView={setActiveView}
+              easyMode={easyMode}
+            />
+          </div>
+        </div>
+      )}
+
+      {showSettings && (
+        <SettingsModal session={session} onClose={() => setShowSettings(false)} />
+      )}
+      
+      {showGroupsModal && (
+        <FamilyGroups 
+          session={session} 
+          onClose={() => setShowGroupsModal(false)}
+          onGroupAdded={fetchGroups}
+        />
       )}
     </div>
   );

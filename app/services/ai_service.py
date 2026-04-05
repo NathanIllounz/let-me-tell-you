@@ -67,18 +67,24 @@ class AIService:
         self.model_name = "gemini-2.5-flash"
 
 
-    def process_voice_story(self, audio_file_path: str) -> dict[str, str]:
+    def process_voice_story(self, audio_file_path: str, language: str = "English") -> dict[str, str]:
         _validate_audio_file(audio_file_path)
 
-        prompt = (
-            "You are a world-class memoir ghostwriter. Your goal is to transform raw, rambling "
-            "speech into a polished, first-person narrative memoir. Strictly remove all filler "
-            "words, self-corrections (e.g., 'it was 85, no 86'), and verbal stumbles. Combine "
-            "repetitive thoughts into elegant sentences. Focus on the sensory details and "
-            "emotions. The final output should read like a published book, preserving the "
-            "speaker's heart but removing the 'messiness' of spoken conversation. Return valid "
-            "JSON with keys: 'suggested_title' and 'cleaned_text'."
-        )
+        prompt = f"""You are a world-class memoir ghostwriter.
+Your goal is to transform raw, rambling speech (detect the source language automatically) into a polished, first-person narrative memoir.
+CRITICAL INSTRUCTION: The final output MUST strictly be translated and written in {language}. 
+
+STYLE GUIDELINES:
+1. Preserve the "Voice" of a warm, wise, elderly person lovingly telling a precious life story to their grandchildren. The tone should be deeply emotional, nostalgic, and heartfelt.
+2. Strictly remove all filler words, self-corrections (e.g., 'it was 85, no 86'), and verbal stumbles.
+3. Combine repetitive thoughts into elegant sentences, focusing heavily on sensory details and emotions.
+4. The final output should read like a beautifully published book.
+
+PUNCTUATION GUIDELINES:
+If the target language is Hebrew (or any RTL language), absolutely DO NOT mix in English/LTR punctuation. Use strictly native punctuation to prevent breaking the Right-to-Left formatting flow.
+
+Return valid JSON with exactly two keys: 'suggested_title' and 'cleaned_text'.
+"""
 
         mime = _mime_type_for_audio_path(audio_file_path) or "audio/mp3"
         with open(audio_file_path, "rb") as f:
@@ -95,7 +101,8 @@ class AIService:
                     model=self.model_name,
                     contents=[audio_part, prompt],
                     config=genai_types.GenerateContentConfig(
-                        response_mime_type="application/json"
+                        response_mime_type="application/json",
+                        temperature=0.4
                     ),
                 )
                 print("DEBUG: Gemini response received!", flush=True)
@@ -136,16 +143,22 @@ class AIService:
 
         return {"suggested_title": suggested_title, "cleaned_text": cleaned_text}
 
-    def refine_text_story(self, text: str) -> dict[str, str]:
-        prompt = (
-            "You are a world-class memoir ghostwriter. Your goal is to transform raw, rambling "
-            "speech into a polished, first-person narrative memoir. Strictly remove all filler "
-            "words, self-corrections (e.g., 'it was 85, no 86'), and verbal stumbles. Combine "
-            "repetitive thoughts into elegant sentences. Focus on the sensory details and "
-            "emotions. The final output should read like a published book, preserving the "
-            "speaker's heart but removing the 'messiness' of spoken conversation. Return valid "
-            "JSON with keys: 'suggested_title' and 'cleaned_text'."
-        )
+    def refine_text_story(self, text: str, language: str = "English") -> dict[str, str]:
+        prompt = f"""You are a world-class memoir ghostwriter.
+Your goal is to transform raw text entries (detect the source language automatically) into a polished, first-person narrative memoir.
+CRITICAL INSTRUCTION: The final output MUST strictly be translated and written in {language}. 
+
+STYLE GUIDELINES:
+1. Preserve the "Voice" of a warm, wise, elderly person lovingly telling a precious life story to their grandchildren. The tone should be deeply emotional, nostalgic, and heartfelt.
+2. Strictly remove all filler words, self-corrections (e.g., 'it was 85, no 86'), and disorganized stumbles.
+3. Combine repetitive thoughts into elegant sentences, focusing heavily on sensory details and emotions.
+4. The final output should read like a beautifully published book.
+
+PUNCTUATION GUIDELINES:
+If the target language is Hebrew (or any RTL language), absolutely DO NOT mix in English/LTR punctuation. Use strictly native punctuation to prevent breaking the Right-to-Left formatting flow.
+
+Return valid JSON with exactly two keys: 'suggested_title' and 'cleaned_text'.
+"""
 
         response = None
         for attempt in range(_GEMINI_RATE_LIMIT_RETRIES):
@@ -155,7 +168,8 @@ class AIService:
                     model=self.model_name,
                     contents=[text, prompt],
                     config=genai_types.GenerateContentConfig(
-                        response_mime_type="application/json"
+                        response_mime_type="application/json",
+                        temperature=0.4
                     ),
                 )
                 print("DEBUG: Gemini response received!", flush=True)

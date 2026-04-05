@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes.auth import router as auth_router
 from app.api.routes.stories import router as stories_router
+from app.api.routes.groups import router as groups_router
 
 
 app = FastAPI(title="LetMeTellYou API")
@@ -17,6 +18,7 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(stories_router)
+app.include_router(groups_router)
 
 
 @app.get("/health")

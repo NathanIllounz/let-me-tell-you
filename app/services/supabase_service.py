@@ -39,6 +39,24 @@ def get_public_audio_url(client: Client, object_path: str, bucket_name: str = "s
     """Returns the public URL for an audio file stored in Supabase."""
     return client.storage.from_(bucket_name).get_public_url(object_path)
 
+def upload_story_cover(
+    *,
+    client: Client,
+    file_bytes: bytes,
+    original_filename: str,
+    bucket_name: str = "story-covers",
+) -> str:
+    extension = Path(original_filename).suffix or ".jpg"
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    object_path = f"covers/{timestamp}-{uuid4().hex}{extension}"
+
+    client.storage.from_(bucket_name).upload(
+        object_path,
+        file_bytes,
+        file_options={"upsert": False, "contentType": f"image/{extension.lstrip('.')}"},
+    )
+    return client.storage.from_(bucket_name).get_public_url(object_path)
+
 def get_signed_url(client: Client, file_path: str, bucket_name: str = "stories-audio") -> str:
     """Returns a temporary signed URL (valid for 3600 seconds) for an audio file."""
     res = client.storage.from_(bucket_name).create_signed_url(file_path, 3600)

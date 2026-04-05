@@ -1,13 +1,24 @@
 import { useState } from 'react';
-import { X, Sparkles, Save, RefreshCw } from 'lucide-react';
+import { X, Sparkles, Save, RefreshCw, ImagePlus } from 'lucide-react';
 import api from '../api';
 
-export default function ManualEntry({ session, onClose, onSaveSuccess }) {
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
-  const [shouldRefine, setShouldRefine] = useState(true);
+export default function ManualEntry({ session, storyToEdit, groups, onClose, onSaveSuccess }) {
+  const [title, setTitle] = useState(storyToEdit?.title || '');
+  const [content, setContent] = useState(storyToEdit?.refined_story || '');
+  const [shouldRefine, setShouldRefine] = useState(!storyToEdit); // Default to refine for new, but no refine for edit unless wanted
+  const [groupId, setGroupId] = useState(storyToEdit?.group_id || '');
+  const [language, setLanguage] = useState(storyToEdit?.language || 'English');
+  const [coverFile, setCoverFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(storyToEdit?.cover_url || '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  const handleCoverChange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      setCoverFile(e.target.files[0]);
+      setPreviewUrl(URL.createObjectURL(e.target.files[0]));
+    }
+  };
 
   const handleSave = async (e) => {
     e.preventDefault();
@@ -19,27 +30,49 @@ export default function ManualEntry({ session, onClose, onSaveSuccess }) {
     setLoading(true);
     setError(null);
     try {
-      // NOTE on API Paths: 
-      // The backend uses POST `/stories/manual` expecting `{ title, content, should_refine }`.
-      // Sending to `/stories/manual` guarantees success, while `/upload-text` throws a 404 because it doesn't exist in the FastAPI router.
+      let finalCoverUrl = previewUrl || null;
+      if (coverFile) {
+        const formData = new FormData();
+        formData.append('file', coverFile);
+        const coverRes = await api.post('/stories/upload-cover', formData, {
+          headers: {
+             'Content-Type': 'multipart/form-data',
+             Authorization: `Bearer ${session.access_token}`
+          }
+        });
+        finalCoverUrl = coverRes.data.cover_url;
+      }
+
       const payload = {
         title: title,
         content: content,
         should_refine: shouldRefine,
-        // Added these fields per your request so they are passed along just in case! 
         story_content: content,
-        user_id: session?.user?.id
+        user_id: session?.user?.id,
+        group_id: groupId || null,
+        language: language,
+        cover_url: finalCoverUrl
       };
 
-      await api.post('/stories/manual', payload, {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`
-        }
-      });
+      if (storyToEdit) {
+        await api.put(`/stories/${storyToEdit.id}`, payload, {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`
+          }
+        });
+      } else {
+        await api.post('/stories/manual', payload, {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`
+          }
+        });
+      }
       
       // Success Handling: clear form, close modal, refresh story list
       setTitle('');
       setContent('');
+      setCoverFile(null);
+      setPreviewUrl('');
       setShouldRefine(true);
       onSaveSuccess();
       onClose();
@@ -55,7 +88,9 @@ export default function ManualEntry({ session, onClose, onSaveSuccess }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-white rounded-2xl shadow-xl border border-stone-100 w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
         <div className="flex items-center justify-between p-6 border-b border-stone-100 bg-stone-50/50">
-          <h2 className="text-2xl font-bold text-stone-800 font-serif">Write a Memory</h2>
+          <h2 className="text-2xl font-bold text-stone-800 font-serif">
+            {storyToEdit ? 'Edit Memory' : 'Write a Memory'}
+          </h2>
           <button 
             onClick={onClose}
             className="p-2 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-full transition-colors"
@@ -70,6 +105,23 @@ export default function ManualEntry({ session, onClose, onSaveSuccess }) {
               {error}
             </div>
           )}
+
+          <div>
+            <label className="block text-sm font-medium text-stone-700 mb-2">Cover Photo (Optional)</label>
+            <div className="flex items-center gap-4">
+               {previewUrl && (
+                  <img src={previewUrl} alt="Cover Preview" className="w-12 h-16 object-cover rounded shadow-sm border border-stone-200" />
+               )}
+               <label className="flex items-center justify-center gap-2 px-4 py-2 border border-stone-200 bg-stone-50 hover:bg-stone-100 text-stone-600 rounded-lg cursor-pointer transition-colors text-sm font-medium">
+                  <ImagePlus className="w-4 h-4"/>
+                  {previewUrl ? 'Change Cover' : 'Upload Cover'}
+                  <input type="file" accept="image/*" onChange={handleCoverChange} disabled={loading} className="hidden" />
+               </label>
+               {previewUrl && (
+                  <button type="button" disabled={loading} onClick={() => { setPreviewUrl(''); setCoverFile(null); }} className="text-xs text-red-500 hover:text-red-700 underline">Remove</button>
+               )}
+            </div>
+          </div>
           
           <div>
             <label className="block text-sm font-medium text-stone-700 mb-2">Title</label>
@@ -93,6 +145,36 @@ export default function ManualEntry({ session, onClose, onSaveSuccess }) {
               placeholder="Start writing..."
               disabled={loading}
             />
+          </div>
+
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-stone-700 mb-2">Who can see this?</label>
+              <select 
+                value={groupId}
+                onChange={(e) => setGroupId(e.target.value)}
+                className="w-full p-3 border border-stone-200 rounded-lg focus:ring-2 focus:ring-stone-400 focus:border-stone-400 outline-none transition-shadow bg-white"
+                disabled={loading}
+              >
+                <option value="">Only Me</option>
+                {groups?.map(g => (
+                  <option key={g.id} value={g.id}>{g.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-stone-700 mb-2">Language</label>
+              <select 
+                value={language}
+                onChange={(e) => setLanguage(e.target.value)}
+                className="w-full p-3 border border-stone-200 rounded-lg focus:ring-2 focus:ring-stone-400 focus:border-stone-400 outline-none transition-shadow bg-white"
+                disabled={loading}
+              >
+                <option value="English">English</option>
+                <option value="Hebrew">Hebrew</option>
+                <option value="French">French</option>
+              </select>
+            </div>
           </div>
 
           <div className="flex items-center gap-3 p-4 bg-indigo-50/50 border border-indigo-100 rounded-xl">
