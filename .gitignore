@@ -2,14 +2,16 @@
 .env
 .env.local
 .env.*.local
+*/.env
+*/.env.local
 
 # --- Python / Backend ---
 __pycache__/
 *.py[cod]
 *$py.class
-venv/
-env/
-.venv/
+backend/venv/
+backend/env/
+backend/.venv/
 .pytest_cache/
 .vscode/
 

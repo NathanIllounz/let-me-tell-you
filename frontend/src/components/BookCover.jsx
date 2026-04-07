@@ -8,7 +8,11 @@ const getDistinctColor = (str) => {
     hash = str.charCodeAt(i) + ((hash << 5) - hash);
   }
   const colors = [
-    'bg-red-800', 'bg-blue-900', 'bg-emerald-800', 'bg-amber-800', 'bg-purple-900', 'bg-rose-900', 'bg-indigo-900'
+    'bg-gradient-to-br from-[#4A2511] to-[#2E1407]', // Rich Brown
+    'bg-gradient-to-br from-[#2C3E2D] to-[#162117]', // Forest Green
+    'bg-gradient-to-br from-[#532929] to-[#341616]', // Deep Burgundy
+    'bg-gradient-to-br from-[#1E293B] to-[#0F172A]', // Deep Navy
+    'bg-gradient-to-br from-[#6B4B3A] to-[#452D21]'  // Antique Leather
   ];
   return colors[Math.abs(hash) % colors.length];
 };
@@ -41,17 +45,17 @@ export default function BookCover({ story, session, easyMode, onClick, onEdit, o
           <div className="absolute left-[20px] top-0 bottom-0 w-[2px] bg-gradient-to-r from-black/40 to-transparent z-20 border-l border-white/10 pointer-events-none shadow-[1px_0_1px_rgba(0,0,0,0.3)]"></div>
           
           {/* Cover Container */}
-          <div className={`absolute inset-0 w-full h-full rounded-r-xl rounded-l-[4px] overflow-hidden ${!story.cover_url ? coverColor : 'bg-stone-300'}`}>
+          <div className={`absolute inset-0 w-full h-full rounded-r-xl rounded-l-[4px] overflow-hidden ${!story.cover_url ? coverColor : 'bg-[#FDFBF7]'}`}>
             {story.cover_url ? (
               <img src={story.cover_url} alt={story.title} className="w-full h-full object-cover" crossOrigin="anonymous" />
             ) : (
               <div className="absolute inset-0 p-4 sm:p-5 flex items-center justify-center text-center">
-                <div className="border-[2px] border-[#D4AF37]/50 shadow-[inset_0_0_10px_rgba(0,0,0,0.3)] p-3 w-full h-full flex flex-col justify-between items-center bg-black/10 backdrop-blur-[2px]">
-                  <div className="w-8 h-0.5 bg-gradient-to-r from-[#D4AF37] to-[#F9E27E] rounded-full mt-1 opacity-80"></div>
-                  <h2 className={`font-serif font-bold text-wrap pb-4 bg-gradient-to-b from-[#F9E27E] via-[#D4AF37] to-[#AA7C11] text-transparent bg-clip-text drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)] tracking-wide ${easyMode ? 'text-[1.35rem] leading-tight' : 'text-lg leading-snug'}`}>
+                <div className="border-[2px] border-[#D4AF37]/40 shadow-[inset_0_0_15px_rgba(0,0,0,0.6)] p-3 w-full h-full flex flex-col justify-between items-center bg-black/20 backdrop-blur-sm rounded-sm">
+                  <div className="w-10 h-1 bg-gradient-to-r from-[#D4AF37] via-[#F9E27E] to-[#D4AF37] rounded-full mt-1 opacity-90 shadow-[0_1px_2px_rgba(0,0,0,0.8)]"></div>
+                  <h2 className={`font-serif font-bold text-wrap pb-2 pt-2 text-[#F3EBE1] drop-shadow-[0_2px_4px_rgba(0,0,0,1)] tracking-wide ${easyMode ? 'text-[1.35rem] leading-tight' : 'text-lg leading-snug'}`}>
                     {story.title || "Untitled Memory"}
                   </h2>
-                  <div className="text-[0.65rem] font-bold uppercase tracking-[0.2em] bg-gradient-to-r from-[#F9E27E] to-[#D4AF37] text-transparent bg-clip-text drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)] opacity-90 mb-2">
+                  <div className="text-[0.65rem] font-bold uppercase tracking-[0.2em] text-[#D4AF37] drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)] opacity-95 mb-1">
                     {story.created_at ? new Date(story.created_at).getFullYear() : 'Memoir'}
                   </div>
                 </div>
@@ -65,19 +69,19 @@ export default function BookCover({ story, session, easyMode, onClick, onEdit, o
       </div>
 
       {/* Controls underneath the book */}
-      <div className={`w-full mt-auto flex ${easyMode ? 'flex-col gap-2 mt-4 px-2' : 'justify-center items-end pb-2 opacity-10 gap-2 hover:opacity-100'} transition-all`}>
+       <div className={`w-full mt-auto flex ${easyMode ? 'flex-col gap-2 mt-4 px-2' : 'justify-center items-end pb-2 opacity-10 gap-2 hover:opacity-100'} transition-all z-10 relative`}>
         {easyMode ? (
            <>
              <button 
                 onClick={onClick}
-                className="w-full py-2.5 bg-stone-800 hover:bg-stone-900 text-white font-bold rounded-lg flex justify-center items-center gap-2 shadow opacity-100"
+                className="w-full py-2.5 bg-[#4A3D33] hover:bg-[#5C4D42] border border-[#3A2D23] text-[#FDFBF7] font-bold rounded-lg flex justify-center items-center gap-2 shadow opacity-100"
              >
                 <BookOpen className="w-4 h-4"/> Read
              </button>
              {isOwner && isManual && (
                <button 
                  onClick={(e) => { e.stopPropagation(); onEdit?.(story); }}
-                 className="w-full py-2 bg-stone-200 hover:bg-stone-300 text-stone-700 font-bold rounded-lg flex justify-center items-center gap-2"
+                 className="w-full py-2 bg-[#FDFBF7] hover:bg-[#F3EBE1] border border-[#E5DACD] text-[#8C7A6B] font-bold rounded-lg flex justify-center items-center gap-2"
                >
                  <Edit3 className="w-4 h-4"/> Edit
                </button>
@@ -85,7 +89,7 @@ export default function BookCover({ story, session, easyMode, onClick, onEdit, o
              {isOwner && (
                <button 
                  onClick={(e) => { e.stopPropagation(); onDelete?.(story); }}
-                 className="w-full py-2 bg-red-100 hover:bg-red-200 text-red-700 font-bold rounded-lg flex justify-center items-center gap-2"
+                 className="w-full py-2 bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 font-bold rounded-lg flex justify-center items-center gap-2"
                >
                  <Trash2 className="w-4 h-4"/> Delete
                </button>
@@ -96,7 +100,7 @@ export default function BookCover({ story, session, easyMode, onClick, onEdit, o
              {isOwner && isManual && (
                <button 
                  onClick={(e) => { e.stopPropagation(); onEdit?.(story); }}
-                 className="p-1.5 text-stone-400 hover:text-indigo-600 bg-white border border-stone-200 rounded-full hover:shadow-md transition-all bg-white/50 backdrop-blur-sm"
+                 className="p-1.5 text-[#8C7A6B] hover:text-[#5C4D42] bg-[#FDFBF7] border border-[#E5DACD] rounded-full shadow-md hover:shadow-lg transition-all"
                  title="Edit Memory"
                >
                  <Edit3 className="w-4 h-4" />
@@ -105,7 +109,7 @@ export default function BookCover({ story, session, easyMode, onClick, onEdit, o
              {isOwner && (
                <button 
                  onClick={(e) => { e.stopPropagation(); onDelete?.(story); }}
-                 className="p-1.5 text-stone-400 hover:text-red-500 bg-white border border-stone-200 rounded-full hover:shadow-md transition-all bg-white/50 backdrop-blur-sm"
+                 className="p-1.5 text-stone-400 hover:text-red-600 bg-[#FDFBF7] border border-[#E5DACD] rounded-full shadow-md hover:shadow-lg transition-all"
                  title="Delete Memory"
                >
                  <Trash2 className="w-4 h-4" />
