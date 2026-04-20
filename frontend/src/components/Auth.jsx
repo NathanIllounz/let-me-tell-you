@@ -5,6 +5,10 @@ export default function Auth({ supabase }) {
   const [mode, setMode] = useState('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [city, setCity] = useState('');
+  const [dob, setDob] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
@@ -33,7 +37,18 @@ export default function Auth({ supabase }) {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       } else {
-        const { error } = await supabase.auth.signUp({ email, password });
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              full_name: fullName,
+              phone: phone,
+              city: city,
+              dob: dob
+            }
+          }
+        });
         if (error) throw error;
         setMessage("Check your email for the confirmation link!");
       }
@@ -105,6 +120,57 @@ export default function Auth({ supabase }) {
             />
           </div>
         </div>
+
+        {mode === 'signup' && (
+          <>
+            <div>
+              <label className="block text-sm font-semibold text-stone-700 mb-2">Full Name</label>
+              <input
+                type="text"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                className="w-full p-3 text-lg bg-white border border-stone-300 rounded-md focus:ring-2 focus:ring-[#8C7A6B] focus:border-[#8C7A6B] outline-none transition-shadow"
+                placeholder="Jane Doe"
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-semibold text-stone-700 mb-2">Phone</label>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="w-full p-3 text-lg bg-white border border-stone-300 rounded-md focus:ring-2 focus:ring-[#8C7A6B] focus:border-[#8C7A6B] outline-none transition-shadow"
+                  placeholder="+1 (555) 000-0000"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-stone-700 mb-2">City</label>
+                <input
+                  type="text"
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  className="w-full p-3 text-lg bg-white border border-stone-300 rounded-md focus:ring-2 focus:ring-[#8C7A6B] focus:border-[#8C7A6B] outline-none transition-shadow"
+                  placeholder="New York"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-stone-700 mb-2">Date of Birth</label>
+              <input
+                type="date"
+                value={dob}
+                onChange={(e) => setDob(e.target.value)}
+                className="w-full p-3 text-lg bg-white border border-stone-300 rounded-md focus:ring-2 focus:ring-[#8C7A6B] focus:border-[#8C7A6B] outline-none transition-shadow"
+                required
+              />
+            </div>
+          </>
+        )}
 
         <div>
           <label className="block text-sm font-semibold text-stone-700 mb-2">Password</label>

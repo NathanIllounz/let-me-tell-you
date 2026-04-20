@@ -44,7 +44,7 @@ export default function Gallery({ session, onSelectStory, groups, onGroupRefresh
     if (activeView === 'my_memories') {
       return allStories.filter(s => s.user_id === session?.user?.id);
     } else if (activeView && activeView !== 'all') {
-      return allStories.filter(s => s.group_id === activeView);
+      return allStories.filter(s => s.story_groups?.some(g => g.group_id === activeView));
     }
     return allStories;
   }, [allStories, activeView, session?.user?.id]);

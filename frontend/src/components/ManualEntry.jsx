@@ -6,7 +6,8 @@ export default function ManualEntry({ session, storyToEdit, groups, onClose, onS
   const [title, setTitle] = useState(storyToEdit?.title || '');
   const [content, setContent] = useState(storyToEdit?.refined_story || '');
   const [shouldRefine, setShouldRefine] = useState(!storyToEdit); // Default to refine for new, but no refine for edit unless wanted
-  const [groupId, setGroupId] = useState(storyToEdit?.group_id || '');
+  const initialGroups = storyToEdit?.story_groups ? storyToEdit.story_groups.map(sg => sg.group_id) : [];
+  const [groupIds, setGroupIds] = useState(initialGroups);
   const [language, setLanguage] = useState(storyToEdit?.language || 'English');
   const [coverFile, setCoverFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(storyToEdit?.cover_url || '');
@@ -49,7 +50,7 @@ export default function ManualEntry({ session, storyToEdit, groups, onClose, onS
         should_refine: shouldRefine,
         story_content: content,
         user_id: session?.user?.id,
-        group_id: groupId || null,
+        group_ids: groupIds,
         language: language,
         cover_url: finalCoverUrl
       };
@@ -150,17 +151,31 @@ export default function ManualEntry({ session, storyToEdit, groups, onClose, onS
           <div className="flex gap-4">
             <div className="flex-1">
               <label className="block text-sm font-medium text-stone-700 mb-2">Who can see this?</label>
-              <select 
-                value={groupId}
-                onChange={(e) => setGroupId(e.target.value)}
-                className="w-full p-3 border border-stone-200 rounded-lg focus:ring-2 focus:ring-stone-400 focus:border-stone-400 outline-none transition-shadow bg-white"
-                disabled={loading}
-              >
-                <option value="">Only Me</option>
+              <div className="w-full max-h-[120px] overflow-y-auto p-3 border border-stone-200 rounded-lg bg-white flex flex-col gap-2">
+                <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-stone-700">
+                  <input
+                    type="checkbox"
+                    checked={groupIds.length === 0}
+                    onChange={() => setGroupIds([])}
+                    className="w-4 h-4 text-emerald-600 rounded border-stone-300 focus:ring-emerald-500"
+                  />
+                  Only Me (Private)
+                </label>
                 {groups?.map(g => (
-                  <option key={g.id} value={g.id}>{g.name}</option>
+                  <label key={g.id} className="flex items-center gap-2 cursor-pointer text-sm text-stone-600">
+                    <input
+                      type="checkbox"
+                      checked={groupIds.includes(g.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) setGroupIds(prev => [...prev, g.id]);
+                        else setGroupIds(prev => prev.filter(id => id !== g.id));
+                      }}
+                      className="w-4 h-4 text-emerald-600 rounded border-stone-300 focus:ring-emerald-500"
+                    />
+                    {g.name}
+                  </label>
                 ))}
-              </select>
+              </div>
             </div>
             <div className="flex-1">
               <label className="block text-sm font-medium text-stone-700 mb-2">Language</label>

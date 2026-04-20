@@ -4,7 +4,8 @@ import api from '../api';
 
 export default function StoryMetadataModal({ story, session, groups, onClose, onUpdate }) {
   const [title, setTitle] = useState(story.title || '');
-  const [groupId, setGroupId] = useState(story.group_id || '');
+  const initialGroups = story.story_groups ? story.story_groups.map(sg => sg.group_id) : [];
+  const [groupIds, setGroupIds] = useState(initialGroups);
   const [language, setLanguage] = useState(story.language || 'English');
   const [coverFile, setCoverFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(story.cover_url || '');
@@ -37,14 +38,14 @@ export default function StoryMetadataModal({ story, session, groups, onClose, on
         title,
         content: story.refined_story, // We use the existing content since we're just updating metadata
         user_id: session.user.id,
-        group_id: groupId || null,
+        group_ids: groupIds,
         language,
         cover_url: finalCoverUrl
       });
       onUpdate({
          ...story,
          title,
-         group_id: groupId || null,
+         story_groups: groupIds.map(id => ({ group_id: id })),
          language,
          cover_url: finalCoverUrl
       });
@@ -92,14 +93,31 @@ export default function StoryMetadataModal({ story, session, groups, onClose, on
           </div>
           <div>
             <label className="block text-sm font-medium text-stone-700 mb-1">Visibility</label>
-            <select 
-              value={groupId} 
-              onChange={e => setGroupId(e.target.value)} 
-              className="w-full p-2.5 border border-stone-200 rounded-lg bg-stone-50"
-            >
-              <option value="">Private (Only Me)</option>
-              {groups?.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-            </select>
+            <div className="w-full max-h-[120px] overflow-y-auto p-2.5 border border-stone-200 rounded-lg bg-stone-50 flex flex-col gap-2">
+              <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-stone-700">
+                <input
+                  type="checkbox"
+                  checked={groupIds.length === 0}
+                  onChange={() => setGroupIds([])}
+                  className="w-4 h-4 text-emerald-600 rounded border-stone-300 focus:ring-emerald-500"
+                />
+                Only Me (Private)
+              </label>
+              {groups?.map(g => (
+                <label key={g.id} className="flex items-center gap-2 cursor-pointer text-sm text-stone-600">
+                  <input
+                    type="checkbox"
+                    checked={groupIds.includes(g.id)}
+                    onChange={(e) => {
+                      if (e.target.checked) setGroupIds(prev => [...prev, g.id]);
+                      else setGroupIds(prev => prev.filter(id => id !== g.id));
+                    }}
+                    className="w-4 h-4 text-emerald-600 rounded border-stone-300 focus:ring-emerald-500"
+                  />
+                  {g.name}
+                </label>
+              ))}
+            </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-stone-700 mb-1">Language</label>

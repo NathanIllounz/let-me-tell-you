@@ -1,10 +1,14 @@
 import { useState } from 'react';
-import { X, Save, RefreshCw, Globe, KeyRound } from 'lucide-react';
+import { X, Save, RefreshCw, Globe, KeyRound, User, Phone, MapPin, Calendar } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
 export default function SettingsModal({ session, onClose }) {
   const [password, setPassword] = useState('');
   const [language, setLanguage] = useState(session?.user?.user_metadata?.language || 'en');
+  const [fullName, setFullName] = useState(session?.user?.user_metadata?.full_name || '');
+  const [phone, setPhone] = useState(session?.user?.user_metadata?.phone || '');
+  const [city, setCity] = useState(session?.user?.user_metadata?.city || '');
+  const [dob, setDob] = useState(session?.user?.user_metadata?.dob || '');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
   const [error, setError] = useState(null);
@@ -22,7 +26,7 @@ export default function SettingsModal({ session, onClose }) {
         updates.password = password;
       }
       
-      updates.data = { language };
+      updates.data = { language, full_name: fullName, phone, city, dob };
 
       const { data, error } = await supabase.auth.updateUser(updates);
 
@@ -56,7 +60,7 @@ export default function SettingsModal({ session, onClose }) {
           </button>
         </div>
         
-        <form onSubmit={handleSave} className="p-6 flex flex-col gap-6">
+        <form onSubmit={handleSave} className="p-6 flex flex-col gap-5 overflow-y-auto max-h-[75vh]">
           {error && (
             <div className="p-3 bg-red-50 text-red-600 rounded-lg border border-red-100 text-sm">
               {error}
@@ -78,6 +82,62 @@ export default function SettingsModal({ session, onClose }) {
               onChange={(e) => setPassword(e.target.value)}
               className="w-full p-2.5 border border-stone-200 rounded-lg focus:ring-2 focus:ring-stone-400 focus:border-stone-400 outline-none transition-shadow"
               placeholder="Leave blank to keep current"
+              disabled={loading}
+            />
+          </div>
+
+          <div>
+            <label className="flex items-center gap-2 text-sm font-medium text-stone-700 mb-2">
+              <User className="w-4 h-4" /> Full Name
+            </label>
+            <input 
+              type="text" 
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              className="w-full p-2.5 border border-stone-200 rounded-lg focus:ring-2 focus:ring-stone-400 focus:border-stone-400 outline-none transition-shadow"
+              placeholder="Your Name"
+              disabled={loading}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <div>
+              <label className="flex items-center gap-2 text-sm font-medium text-stone-700 mb-2">
+                <Phone className="w-4 h-4" /> Phone
+              </label>
+              <input 
+                type="tel" 
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="w-full p-2.5 border border-stone-200 rounded-lg focus:ring-2 focus:ring-stone-400 focus:border-stone-400 outline-none transition-shadow"
+                placeholder="+1 (555)..."
+                disabled={loading}
+              />
+            </div>
+            <div>
+              <label className="flex items-center gap-2 text-sm font-medium text-stone-700 mb-2">
+                <MapPin className="w-4 h-4" /> City
+              </label>
+              <input 
+                type="text" 
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                className="w-full p-2.5 border border-stone-200 rounded-lg focus:ring-2 focus:ring-stone-400 focus:border-stone-400 outline-none transition-shadow"
+                placeholder="City Name"
+                disabled={loading}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="flex items-center gap-2 text-sm font-medium text-stone-700 mb-2">
+              <Calendar className="w-4 h-4" /> Date of Birth
+            </label>
+            <input 
+              type="date" 
+              value={dob}
+              onChange={(e) => setDob(e.target.value)}
+              className="w-full p-2.5 border border-stone-200 rounded-lg focus:ring-2 focus:ring-stone-400 focus:border-stone-400 outline-none transition-shadow"
               disabled={loading}
             />
           </div>

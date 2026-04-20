@@ -5,7 +5,7 @@ import api from '../api';
 export default function VoiceRecorder({ session, groups, onClose, onSaveSuccess }) {
   const [status, setStatus] = useState('idle'); // idle, recording, processing, error, success
   const [errorMessage, setErrorMessage] = useState('');
-  const [groupId, setGroupId] = useState('');
+  const [groupIds, setGroupIds] = useState([]);
   const [language, setLanguage] = useState('English');
   
   const mediaRecorderRef = useRef(null);
@@ -58,8 +58,8 @@ export default function VoiceRecorder({ session, groups, onClose, onSaveSuccess 
     if (session?.user?.id) {
       formData.append('user_id', session.user.id);
     }
-    if (groupId) {
-      formData.append('group_id', groupId);
+    if (groupIds.length > 0) {
+      formData.append('group_ids', JSON.stringify(groupIds));
     }
     formData.append('language', language);
 
@@ -102,17 +102,32 @@ export default function VoiceRecorder({ session, groups, onClose, onSaveSuccess 
             <div className="w-full mb-8 text-left space-y-4">
               <div>
                 <label className="block text-sm font-medium text-stone-700 mb-2">Who can see this?</label>
-                <select 
-                  value={groupId}
-                  onChange={(e) => setGroupId(e.target.value)}
-                  className="w-full p-2.5 border border-stone-200 rounded-lg focus:ring-2 focus:ring-stone-400 focus:border-stone-400 outline-none transition-shadow bg-stone-50"
-                  disabled={status !== 'idle'}
-                >
-                  <option value="">Only Me</option>
+                <div className="w-full max-h-[120px] overflow-y-auto p-3 border border-stone-200 rounded-lg bg-stone-50 flex flex-col gap-2">
+                  <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-stone-700">
+                    <input
+                      type="checkbox"
+                      checked={groupIds.length === 0}
+                      onChange={() => setGroupIds([])}
+                      className="w-4 h-4 text-emerald-600 rounded border-stone-300 focus:ring-emerald-500"
+                    />
+                    Only Me (Private)
+                  </label>
                   {groups?.map(g => (
-                    <option key={g.id} value={g.id}>{g.name}</option>
+                    <label key={g.id} className="flex items-center gap-2 cursor-pointer text-sm text-stone-600">
+                      <input
+                        type="checkbox"
+                        checked={groupIds.includes(g.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) setGroupIds(prev => [...prev, g.id]);
+                          else setGroupIds(prev => prev.filter(id => id !== g.id));
+                        }}
+                        className="w-4 h-4 text-emerald-600 rounded border-stone-300 focus:ring-emerald-500"
+                        disabled={status !== 'idle'}
+                      />
+                      {g.name}
+                    </label>
                   ))}
-                </select>
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-stone-700 mb-2">Story Language</label>

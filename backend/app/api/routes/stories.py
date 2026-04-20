@@ -1,3 +1,4 @@
+import json
 import tempfile
 import traceback
 from pathlib import Path
@@ -17,7 +18,7 @@ router = APIRouter(prefix="/stories", tags=["stories"])
 async def upload_audio(
     file: UploadFile = File(...),
     user_id: str | None = Form(None),
-    group_id: str | None = Form(None),
+    group_ids: str | None = Form(None),
     language: str | None = Form("English")
 ) -> dict[str, Any]:
     if not file.filename:
@@ -69,15 +70,25 @@ async def upload_audio(
         print("Story generated successfully", flush=True)
 
         # Save to Supabase stories table
-        client.table("stories").insert({
+        response = client.table("stories").insert({
             "title": result["suggested_title"],
             "refined_story": result["cleaned_text"],
             "audio_path": object_path,
             "refined_audio_path": None,
             "user_id": user_id,
-            "group_id": group_id,
             "language": language or "English",
         }).execute()
+        
+        story_id = response.data[0]["id"] if response.data else None
+
+        if story_id and group_ids:
+            try:
+                parsed_group_ids = json.loads(group_ids)
+                if parsed_group_ids:
+                    group_inserts = [{"story_id": story_id, "group_id": gid} for gid in parsed_group_ids]
+                    client.table("story_groups").insert(group_inserts).execute()
+            except json.JSONDecodeError:
+                print("Failed to parse group_ids JSON", flush=True)
 
         print("Success: Story saved to Supabase Table.", flush=True)
 
@@ -174,7 +185,7 @@ class ManualStoryRequest(BaseModel):
     should_refine: bool = False
     story_content: str | None = None
     user_id: str | None = None
-    group_id: str | None = None
+    group_ids: list[str] = []
     language: str = "English"
     cover_url: str | None = None
 
@@ -217,10 +228,16 @@ async def create_manual_story(request: ManualStoryRequest) -> dict[str, Any]:
             "audio_path": "manual_entry",
             "refined_audio_path": None,
             "user_id": user_id,
-            "group_id": request.group_id,
             "language": request.language,
             "cover_url": request.cover_url,
         }).execute()
+        
+        story_id = data.data[0]["id"] if data.data else None
+        
+        if story_id and request.group_ids:
+            group_inserts = [{"story_id": story_id, "group_id": gid} for gid in request.group_ids]
+            client.table("story_groups").insert(group_inserts).execute()
+            
         print("Success: Manual story saved to Supabase Table.", flush=True)
         return data.data[0] if data.data else {}
     except Exception as exc:
@@ -231,27 +248,30 @@ async def create_manual_story(request: ManualStoryRequest) -> dict[str, Any]:
         ) from exc
 
 @router.get("")
-async def get_stories(user_id: str, group_id: str | None = None, filter_me: bool = False) -> list[dict[str, Any]]:
+async def get_stories(user_id: str) -> list[dict[str, Any]]:
     client = get_supabase_client()
     try:
-        stories_query = client.table("stories").select("id, created_at, title, refined_story, audio_path, refined_audio_path, user_id, group_id, language, cover_url")
+        # Get stories owned by user
+        user_stories_res = client.table("stories").select("id, created_at, title, refined_story, audio_path, refined_audio_path, user_id, language, cover_url, story_groups(group_id)").eq("user_id", user_id).execute()
+        stories = user_stories_res.data or []
         
-        if filter_me:
-            stories_query = stories_query.eq("user_id", user_id)
-        elif group_id:
-            stories_query = stories_query.eq("group_id", group_id)
-        else:
-            memberships_data = client.table("group_members").select("group_id").eq("user_id", user_id).execute()
-            group_ids = [m["group_id"] for m in (memberships_data.data or [])]
-            if group_ids:
-                group_ids_str = ",".join([f'"{gid}"' for gid in group_ids])
-                stories_query = stories_query.or_(f"user_id.eq.{user_id},user_id.is.null,group_id.in.({group_ids_str})")
-            else:
-                stories_query = stories_query.or_(f"user_id.eq.{user_id},user_id.is.null")
-                
-        response = stories_query.order("created_at", desc=True).execute()
+        # Get stories shared with user's groups
+        memberships_data = client.table("group_members").select("group_id").eq("user_id", user_id).execute()
+        group_ids = [m["group_id"] for m in (memberships_data.data or [])]
         
-        stories = response.data
+        if group_ids:
+            group_ids_str = ",".join([f'"{gid}"' for gid in group_ids])
+            group_stories_res = client.table("stories").select("id, created_at, title, refined_story, audio_path, refined_audio_path, user_id, language, cover_url, story_groups!inner(group_id)").in_("story_groups.group_id", group_ids).execute()
+            
+            # Combine and deduplicate
+            existing_ids = {s["id"] for s in stories}
+            for gs in (group_stories_res.data or []):
+                if gs["id"] not in existing_ids:
+                    stories.append(gs)
+                    existing_ids.add(gs["id"])
+                    
+        # Sort by created_at desc
+        stories.sort(key=lambda x: x.get("created_at", ""), reverse=True)
         for story in stories:
             path_val = story.get("audio_path")
             if path_val and path_val != "manual_entry":
@@ -274,7 +294,7 @@ class UpdateStoryRequest(BaseModel):
     content: str
     should_refine: bool = False
     user_id: str
-    group_id: str | None = None
+    group_ids: list[str] | None = None
     language: str | None = None
     cover_url: str | None = None
 
@@ -328,8 +348,6 @@ async def update_story(story_id: str, request: UpdateStoryRequest) -> dict[str, 
         }
         
         req_dict = request.model_dump(exclude_unset=True) if hasattr(request, "model_dump") else request.dict(exclude_unset=True)
-        if "group_id" in req_dict:
-             update_data["group_id"] = request.group_id
         if "language" in req_dict:
              update_data["language"] = request.language
         if "cover_url" in req_dict:
@@ -340,6 +358,13 @@ async def update_story(story_id: str, request: UpdateStoryRequest) -> dict[str, 
         
         if not data.data:
             raise HTTPException(status_code=404, detail="Story not found or unauthorized")
+            
+        # Manage Many-to-Many updates
+        if "group_ids" in req_dict and request.group_ids is not None:
+             client.table("story_groups").delete().eq("story_id", story_id).execute()
+             if request.group_ids:
+                 group_inserts = [{"story_id": story_id, "group_id": gid} for gid in request.group_ids]
+                 client.table("story_groups").insert(group_inserts).execute()
             
         return data.data[0]
     except HTTPException:
