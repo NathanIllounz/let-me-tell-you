@@ -6,7 +6,9 @@ export default function VoiceRecorder({ session, groups, onClose, onSaveSuccess 
   const [status, setStatus] = useState('idle'); // idle, recording, processing, error, success
   const [errorMessage, setErrorMessage] = useState('');
   const [groupIds, setGroupIds] = useState([]);
-  const [language, setLanguage] = useState('English');
+  const userLanguageCode = session?.user?.user_metadata?.language;
+  const defaultLangMap = { 'en': 'English', 'fr': 'French', 'he': 'Hebrew' };
+  const [language, setLanguage] = useState(userLanguageCode ? defaultLangMap[userLanguageCode] : 'English');
   const [shouldRefine, setShouldRefine] = useState(true);
   const [coverFile, setCoverFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState('');

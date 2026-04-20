@@ -5,6 +5,7 @@ import { supabase } from '../supabaseClient';
 export default function SettingsModal({ session, onClose }) {
   const [password, setPassword] = useState('');
   const [language, setLanguage] = useState(session?.user?.user_metadata?.language || 'en');
+  const [gender, setGender] = useState(session?.user?.user_metadata?.gender || 'female');
   const [fullName, setFullName] = useState(session?.user?.user_metadata?.full_name || '');
   const [phone, setPhone] = useState(session?.user?.user_metadata?.phone || '');
   const [city, setCity] = useState(session?.user?.user_metadata?.city || '');
@@ -26,7 +27,7 @@ export default function SettingsModal({ session, onClose }) {
         updates.password = password;
       }
       
-      updates.data = { language, full_name: fullName, phone, city, dob };
+      updates.data = { language, gender, full_name: fullName, phone, city, dob };
 
       const { data, error } = await supabase.auth.updateUser(updates);
 
@@ -158,6 +159,24 @@ export default function SettingsModal({ session, onClose }) {
             </select>
             <p className="text-xs text-stone-500 mt-2 text-justify">
               This language choice will be used for future app features (like AI narrations and interface translations). Currently saves to your profile.
+            </p>
+          </div>
+
+          <div>
+            <label className="flex items-center gap-2 text-sm font-medium text-stone-700 mb-2">
+              <User className="w-4 h-4" /> Default Narrator Gender
+            </label>
+            <select
+              value={gender}
+              onChange={(e) => setGender(e.target.value)}
+              className="w-full p-2.5 border border-stone-300 shadow-sm rounded-lg focus:ring-2 focus:ring-stone-400 focus:border-stone-400 outline-none transition-shadow bg-white"
+              disabled={loading}
+            >
+              <option value="female">Female</option>
+              <option value="male">Male</option>
+            </select>
+            <p className="text-xs text-stone-500 mt-2 text-justify">
+              This will automatically set your preferred voice gender when generating AI Audio.
             </p>
           </div>
           

@@ -8,7 +8,9 @@ export default function ManualEntry({ session, storyToEdit, groups, onClose, onS
   const [shouldRefine, setShouldRefine] = useState(!storyToEdit); // Default to refine for new, but no refine for edit unless wanted
   const initialGroups = storyToEdit?.story_groups ? storyToEdit.story_groups.map(sg => sg.group_id) : [];
   const [groupIds, setGroupIds] = useState(initialGroups);
-  const [language, setLanguage] = useState(storyToEdit?.language || 'English');
+  const userLanguageCode = session?.user?.user_metadata?.language;
+  const defaultLangMap = { 'en': 'English', 'fr': 'French', 'he': 'Hebrew' };
+  const [language, setLanguage] = useState(storyToEdit?.language || (userLanguageCode ? defaultLangMap[userLanguageCode] : 'English'));
   const [coverFile, setCoverFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(storyToEdit?.cover_url || '');
   const [loading, setLoading] = useState(false);

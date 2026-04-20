@@ -20,7 +20,7 @@ export default function StoryDetail({ story, session, groups, onBack, onUpdate }
   const [editedContent, setEditedContent] = useState(story.refined_story || '');
   const [savingText, setSavingText] = useState(false);
   const [generatingNarrator, setGeneratingNarrator] = useState(false);
-  const [narratorGender, setNarratorGender] = useState('female');
+  const [narratorGender, setNarratorGender] = useState(session?.user?.user_metadata?.gender || 'female');
   const isOwner = story.user_id === session?.user?.id;
 
   const handleGenerateNarrator = async () => {
