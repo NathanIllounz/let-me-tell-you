@@ -25,7 +25,31 @@ export default function StoryDetail({ story, session, groups, onBack, onUpdate }
   const handleGenerateNarrator = async () => {
     setGeneratingNarrator(true);
     try {
-      await api.post(`/stories/${story.id}/generate-audio`, null, { params: { user_id: session.user.id } });
+      const res = await api.post(`/stories/${story.id}/generate-audio`, null, { params: { user_id: session.user.id } });
+      const taskId = res.data.task_id;
+      
+      const pollTimer = setInterval(async () => {
+         try {
+            const taskRes = await api.get(`/tasks/${taskId}`, { headers: { Authorization: `Bearer ${session.access_token}` } });
+            if (taskRes.data.status === 'completed') {
+               clearInterval(pollTimer);
+               // Fetch the updated story to get the signed audio url
+               const storiesRes = await api.get('/stories', { params: { user_id: session.user.id } });
+               const updatedStory = storiesRes.data.find(s => s.id === story.id);
+               if (updatedStory) {
+                  onUpdate(updatedStory);
+                  setActiveTrack('narrator');
+               }
+               setGeneratingNarrator(false);
+            } else if (taskRes.data.status === 'failed') {
+               clearInterval(pollTimer);
+               alert("Narrator generation failed on the server.");
+               setGeneratingNarrator(false);
+            }
+         } catch (e) {
+            console.error("Polling error", e);
+         }
+      }, 4000);
     } catch (e) {
       alert("Failed to queue narrator generation. Ensure you are the owner.");
       setGeneratingNarrator(false);
