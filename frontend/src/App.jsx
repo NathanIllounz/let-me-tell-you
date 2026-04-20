@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { BookOpen, LogOut, User, Settings } from 'lucide-react';
+import { BookOpen, LogOut, User, Settings, Users } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import api from './api';
 import Auth from './components/Auth';
@@ -7,6 +7,7 @@ import Gallery from './components/Gallery';
 import StoryDetail from './components/StoryDetail';
 import SettingsModal from './components/SettingsModal';
 import FamilyGroups from './components/FamilyGroups';
+import SocialCenter from './components/SocialCenter';
 import LandingPage from './components/LandingPage';
 
 function App() {
@@ -15,6 +16,7 @@ function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [groups, setGroups] = useState([]);
   const [showGroupsModal, setShowGroupsModal] = useState(false);
+  const [showSocialCenter, setShowSocialCenter] = useState(false);
   const [activeView, setActiveView] = useState('all'); // 'all', 'my_memories', or group_id
   const [easyMode, setEasyMode] = useState(false);
 
@@ -151,6 +153,13 @@ function App() {
                   <User className="w-4 h-4" />
                   My Memories
                 </li>
+                <li 
+                  onClick={() => setShowSocialCenter(true)}
+                  className="cursor-pointer px-3 py-2.5 rounded-lg shadow-sm text-sm font-medium flex items-center gap-2 transition-colors bg-white border border-[#E5DACD] text-[#4A3D33] hover:bg-[#F3EBE1]"
+                >
+                  <Users className="w-4 h-4 text-indigo-500" />
+                  My Friends
+                </li>
                 
                 <div className="pt-4 pb-2 text-xs font-bold text-stone-400 uppercase tracking-wider">Circles</div>
                 
@@ -202,6 +211,10 @@ function App() {
           onClose={() => setShowGroupsModal(false)}
           onGroupAdded={fetchGroups}
         />
+      )}
+      
+      {showSocialCenter && (
+        <SocialCenter session={session} onClose={() => setShowSocialCenter(false)} />
       )}
     </div>
   );

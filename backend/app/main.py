@@ -5,6 +5,7 @@ from app.api.routes.auth import router as auth_router
 from app.api.routes.stories import router as stories_router
 from app.api.routes.groups import router as groups_router
 from app.api.routes.tasks import router as tasks_router
+from app.api.routes.friends import router as friends_router
 
 
 app = FastAPI(title="LetMeTellYou API")
@@ -21,6 +22,7 @@ app.include_router(auth_router)
 app.include_router(stories_router)
 app.include_router(groups_router)
 app.include_router(tasks_router, prefix="/tasks", tags=["Tasks"])
+app.include_router(friends_router, prefix="/friends", tags=["Friends"])
 
 
 @app.get("/health")

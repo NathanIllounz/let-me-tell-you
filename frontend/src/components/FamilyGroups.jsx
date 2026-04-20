@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Users, Copy, Check, UsersRound } from 'lucide-react';
 import api from '../api';
 
@@ -10,11 +10,25 @@ export default function FamilyGroups({ session, onClose, onGroupAdded }) {
   const [createdGroup, setCreatedGroup] = useState(null);
   const [copied, setCopied] = useState(false);
   
+  // Social Graph
+  const [friends, setFriends] = useState([]);
+  const [selectedFriend, setSelectedFriend] = useState('');
+  const [inviteMessage, setInviteMessage] = useState(null);
+  
   // Join
   const [inviteCode, setInviteCode] = useState('');
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  useEffect(() => {
+    // Fetch friends on load
+    if (session?.access_token) {
+       api.get('/friends/all', { headers: { Authorization: `Bearer ${session.access_token}` }})
+          .then(res => setFriends(res.data || []))
+          .catch(err => console.error(err));
+    }
+  }, []);
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -67,6 +81,24 @@ export default function FamilyGroups({ session, onClose, onGroupAdded }) {
     }
   };
 
+  const handleDirectInvite = async () => {
+    if (!selectedFriend) return;
+    setLoading(true);
+    try {
+       const res = await api.post(`/groups/${createdGroup.id}/invite-friend`, {
+          friend_id: selectedFriend,
+          user_id: session.user.id
+       }, { headers: { Authorization: `Bearer ${session.access_token}` }});
+       setInviteMessage({ type: 'success', text: res.data.message });
+       setSelectedFriend('');
+    } catch (err) {
+       setInviteMessage({ type: 'error', text: err.response?.data?.detail || "Failed to invite." });
+    } finally {
+       setLoading(false);
+       setTimeout(() => setInviteMessage(null), 3000);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-white rounded-2xl shadow-xl border border-stone-100 w-full max-w-md overflow-hidden flex flex-col">
@@ -91,7 +123,7 @@ export default function FamilyGroups({ session, onClose, onGroupAdded }) {
             <h3 className="text-2xl font-bold text-stone-800 mb-2">{createdGroup.name} Created!</h3>
             <p className="text-stone-500 mb-6">Share this invite code with your family members so they can join.</p>
             
-            <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 w-full flex items-center justify-between shadow-inner">
+            <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 w-full flex items-center justify-between shadow-inner mb-6">
               <span className="text-3xl font-mono tracking-widest font-bold text-indigo-700">
                 {createdGroup.invite_code}
               </span>
@@ -103,8 +135,39 @@ export default function FamilyGroups({ session, onClose, onGroupAdded }) {
                 {copied ? <Check className="w-5 h-5 text-emerald-500" /> : <Copy className="w-5 h-5" />}
               </button>
             </div>
+
+            {friends.length > 0 && (
+              <div className="w-full text-left bg-white border border-indigo-100 p-4 rounded-xl shadow-sm">
+                 <label className="block text-sm font-bold text-indigo-900 mb-2">Or Invite a Friend Directly</label>
+                 <div className="flex gap-2">
+                    <select 
+                       value={selectedFriend}
+                       onChange={(e) => setSelectedFriend(e.target.value)}
+                       className="flex-1 p-2.5 border border-stone-200 rounded-lg text-sm bg-stone-50 outline-none focus:ring-2 focus:ring-indigo-500"
+                       disabled={loading}
+                    >
+                       <option value="">Select a friend...</option>
+                       {friends.map(f => (
+                          <option key={f.id} value={f.id}>{f.username}#{f.tag}</option>
+                       ))}
+                    </select>
+                    <button 
+                       onClick={handleDirectInvite}
+                       disabled={!selectedFriend || loading}
+                       className="px-4 py-2.5 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                    >
+                       Invite
+                    </button>
+                 </div>
+                 {inviteMessage && (
+                    <p className={`text-xs mt-2 font-bold ${inviteMessage.type === 'error' ? 'text-rose-500' : 'text-emerald-500'}`}>
+                       {inviteMessage.text}
+                    </p>
+                 )}
+              </div>
+            )}
             
-            <button 
+            <button  
               onClick={onClose}
               className="mt-8 px-6 py-3 bg-stone-800 hover:bg-stone-900 text-white rounded-lg font-medium transition-colors w-full"
             >

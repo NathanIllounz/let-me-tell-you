@@ -195,3 +195,32 @@ async def refresh_invite(group_id: str, request: RefreshInviteRequest) -> dict[s
         raise
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Could not refresh invite code.") from exc
+
+class InviteFriendRequest(BaseModel):
+    friend_id: str
+    user_id: str
+
+@router.post("/{group_id}/invite-friend")
+async def invite_friend_to_group(group_id: str, request: InviteFriendRequest) -> dict[str, Any]:
+    client = get_supabase_client()
+    try:
+        # Check if they are friends in the social graph
+        res = client.table("friend_requests").select("status").eq("status", "accepted").or_(f"and(sender_id.eq.{request.user_id},receiver_id.eq.{request.friend_id}),and(sender_id.eq.{request.friend_id},receiver_id.eq.{request.user_id})").execute()
+        if not res.data:
+            raise HTTPException(status_code=403, detail="You must be friends to invite them directly.")
+            
+        # Check if they're already a member
+        mem_check = client.table("group_members").select("*").eq("group_id", group_id).eq("user_id", request.friend_id).execute()
+        if mem_check.data:
+            return {"message": "Friend is already in the circle."}
+            
+        client.table("group_members").insert({
+            "group_id": group_id,
+            "user_id": request.friend_id,
+            "role": "member"
+        }).execute()
+        return {"message": "Friend successfully added to the circle!"}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="Could not invite friend.") from exc
