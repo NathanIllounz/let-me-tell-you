@@ -20,12 +20,13 @@ export default function StoryDetail({ story, session, groups, onBack, onUpdate }
   const [editedContent, setEditedContent] = useState(story.refined_story || '');
   const [savingText, setSavingText] = useState(false);
   const [generatingNarrator, setGeneratingNarrator] = useState(false);
+  const [narratorGender, setNarratorGender] = useState('female');
   const isOwner = story.user_id === session?.user?.id;
 
   const handleGenerateNarrator = async () => {
     setGeneratingNarrator(true);
     try {
-      const res = await api.post(`/stories/${story.id}/generate-audio`, null, { params: { user_id: session.user.id } });
+      const res = await api.post(`/stories/${story.id}/generate-audio`, null, { params: { user_id: session.user.id, gender: narratorGender } });
       const taskId = res.data.task_id;
       
       const pollTimer = setInterval(async () => {
@@ -156,6 +157,16 @@ export default function StoryDetail({ story, session, groups, onBack, onUpdate }
             </button>
           )}
 
+          {story.cover_url && (
+             <div className="flex justify-center mb-12 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-150">
+                <img 
+                   src={story.cover_url} 
+                   alt={`${story.title} Cover`} 
+                   className="w-56 h-auto max-h-80 object-cover rounded-md shadow-2xl border border-stone-200/60"
+                />
+             </div>
+          )}
+
           <h1 className="text-4xl sm:text-5xl font-bold text-stone-800 font-serif leading-tight sm:leading-tight mb-10 mx-auto max-w-2xl px-8">
             {story.title || "Untitled Memory"}
           </h1>
@@ -233,13 +244,23 @@ export default function StoryDetail({ story, session, groups, onBack, onUpdate }
                        <span>Generating Narrator Audio...</span>
                     </div>
                  ) : (
-                    <button 
-                      onClick={handleGenerateNarrator}
-                      className="flex items-center gap-2 px-6 py-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-full text-sm font-bold transition-all shadow-sm border border-indigo-200"
-                    >
-                      <Sparkles className="w-4 h-4"/>
-                      Generate Narrator Voice
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <select 
+                        value={narratorGender} 
+                        onChange={(e) => setNarratorGender(e.target.value)}
+                        className="pl-3 pr-8 py-3 bg-white border border-stone-200 text-stone-600 rounded-full text-sm font-medium outline-none shadow-sm cursor-pointer appearance-none"
+                      >
+                        <option value="female">Female</option>
+                        <option value="male">Male</option>
+                      </select>
+                      <button 
+                        onClick={handleGenerateNarrator}
+                        className="flex items-center gap-2 px-6 py-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-full text-sm font-bold transition-all shadow-sm border border-indigo-200"
+                      >
+                        <Sparkles className="w-4 h-4"/>
+                        Generate Narrator Voice
+                      </button>
+                    </div>
                  )}
                </div>
             )}
@@ -252,13 +273,23 @@ export default function StoryDetail({ story, session, groups, onBack, onUpdate }
                        <span>AI Narrator processing...</span>
                     </div>
                  ) : (
-                    <button 
-                      onClick={handleGenerateNarrator}
-                      className="flex items-center gap-2 px-5 py-2.5 bg-white hover:bg-indigo-50 border border-indigo-200 text-indigo-600 rounded-full text-xs font-bold transition-all shadow-sm"
-                    >
-                      <Sparkles className="w-3.5 h-3.5"/>
-                      Generate Narrator AI
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <select 
+                        value={narratorGender} 
+                        onChange={(e) => setNarratorGender(e.target.value)}
+                        className="pl-3 pr-8 py-2.5 bg-white border border-stone-200 text-stone-600 rounded-full text-xs font-medium outline-none shadow-sm cursor-pointer appearance-none"
+                      >
+                        <option value="female">Female Voice</option>
+                        <option value="male">Male Voice</option>
+                      </select>
+                      <button 
+                        onClick={handleGenerateNarrator}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-white hover:bg-indigo-50 border border-indigo-200 text-indigo-600 rounded-full text-xs font-bold transition-all shadow-sm"
+                      >
+                        <Sparkles className="w-3.5 h-3.5"/>
+                        Generate Narrator AI
+                      </button>
+                    </div>
                  )}
                </div>
             )}

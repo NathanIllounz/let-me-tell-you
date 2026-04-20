@@ -2,18 +2,19 @@ import edge_tts
 import uuid
 import os
 
-async def generate_audio(text: str, language: str = "English") -> str:
+async def generate_audio(text: str, language: str = "English", gender: str = "female") -> str:
     """
     Generates spoken audio from text using edge-tts and returns the path to the temporary mp3 file.
     """
-    # Map high level languages to edge-tts voices (these are solid reliable defaults for Edge TTS)
-    voice_map = {
-        "English": "en-US-ChristopherNeural", 
-        "French": "fr-FR-HenriNeural",
-        "Hebrew": "he-IL-AvriNeural" # Only free Hebrew voice on EdgeTTS male
+    # Map high level languages to edge-tts voices split by gender
+    voices = {
+        "English": {"male": "en-US-ChristopherNeural", "female": "en-US-JennyNeural"},
+        "French": {"male": "fr-FR-HenriNeural", "female": "fr-FR-DeniseNeural"},
+        "Hebrew": {"male": "he-IL-AvriNeural", "female": "he-IL-HilaNeural"}
     }
     
-    voice = voice_map.get(language, "en-US-ChristopherNeural")
+    lang_voices = voices.get(language, voices["English"])
+    voice = lang_voices.get(gender, lang_voices["female"])
     
     # Generate unique filename
     output_filename = f"temp_tts_{uuid.uuid4().hex}.mp3"

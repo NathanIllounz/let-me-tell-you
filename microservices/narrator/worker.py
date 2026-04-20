@@ -56,6 +56,7 @@ async def daemon_loop():
             story_id = payload.get("story_id")
             text = payload.get("text", "")
             language = payload.get("language", "English")
+            gender = payload.get("gender", "female")
             
             if not story_id or not text:
                 print(f"DEBUG: Task {task_id} missing critical payload parts. Failing task.")
@@ -72,7 +73,7 @@ async def daemon_loop():
             
             # 2. Generate Audio
             print(f"Generating audio for: {story_id}...", flush=True)
-            mp3_path = await generate_audio(text, language)
+            mp3_path = await generate_audio(text, language, gender)
             
             # 3. Upload to Storage
             print("Uploading to Storage...", flush=True)

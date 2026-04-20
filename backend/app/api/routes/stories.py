@@ -399,7 +399,7 @@ async def update_story(story_id: str, request: UpdateStoryRequest) -> dict[str, 
 
 
 @router.post("/{story_id}/generate-audio")
-async def request_tts_generation(story_id: str, user_id: str) -> dict[str, Any]:
+async def request_tts_generation(story_id: str, user_id: str, gender: str = "female") -> dict[str, Any]:
     if not user_id:
         raise HTTPException(status_code=400, detail="user_id is required")
         
@@ -417,7 +417,8 @@ async def request_tts_generation(story_id: str, user_id: str) -> dict[str, Any]:
         task_id = dispatcher.enqueue_task("tts_generation", {
             "story_id": story_id,
             "text": story["refined_story"],
-            "language": story.get("language", "English")
+            "language": story.get("language", "English"),
+            "gender": gender
         })
         
         if not task_id:
@@ -429,4 +430,37 @@ async def request_tts_generation(story_id: str, user_id: str) -> dict[str, Any]:
     except Exception as exc:
         print(f"Failed to queue TTS generation: {exc}", flush=True)
         raise HTTPException(status_code=500, detail="Could not queue TTS generation.")
+
+
+@router.post("/{story_id}/generate-cover")
+async def request_cover_generation(story_id: str, user_id: str) -> dict[str, Any]:
+    if not user_id:
+        raise HTTPException(status_code=400, detail="user_id is required")
+        
+    client = get_supabase_client()
+    try:
+        story_res = client.table("stories").select("id, title").eq("id", story_id).eq("user_id", user_id).execute()
+        if not story_res.data:
+            raise HTTPException(status_code=404, detail="Story not found or unauthorized")
+            
+        story = story_res.data[0]
+        if not story.get("title"):
+            raise HTTPException(status_code=400, detail="Story needs a title to generate a cover.")
+            
+        dispatcher = TaskDispatcher()
+        task_id = dispatcher.enqueue_task("image_generation", {
+            "story_id": story_id,
+            "title": story["title"],
+            "context": story.get("refined_story", "")[:200]
+        })
+        
+        if not task_id:
+            raise HTTPException(status_code=500, detail="Failed to enqueue Image task.")
+            
+        return {"status": "queued", "task_id": task_id, "message": "Image generation started"}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        print(f"Failed to queue cover generation: {exc}", flush=True)
+        raise HTTPException(status_code=500, detail="Could not queue Cover generation.")
 
