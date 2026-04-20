@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from app.services.ai_service import AIService, GeminiRateLimitError
 from app.services.supabase_service import get_supabase_client, upload_story_audio, get_signed_url, upload_story_cover
+from app.services.dispatcher import TaskDispatcher
 
 
 router = APIRouter(prefix="/stories", tags=["stories"])
@@ -104,6 +105,17 @@ async def upload_audio(
                 print("Failed to parse group_ids JSON", flush=True)
 
         print("Success: Story saved to Supabase Table.", flush=True)
+
+        if cleaned_text:
+            try:
+                dispatcher = TaskDispatcher()
+                dispatcher.enqueue_task("tts_generation", {
+                    "story_id": story_id,
+                    "text": cleaned_text,
+                    "language": language or "English"
+                })
+            except Exception as d_exc:
+                print(f"Warning: Failed to enqueue TTS task: {d_exc}", flush=True)
 
         signed_url = get_signed_url(client, object_path)
         return {
@@ -252,6 +264,18 @@ async def create_manual_story(request: ManualStoryRequest) -> dict[str, Any]:
             client.table("story_groups").insert(group_inserts).execute()
             
         print("Success: Manual story saved to Supabase Table.", flush=True)
+
+        if refined_story:
+            try:
+                dispatcher = TaskDispatcher()
+                dispatcher.enqueue_task("tts_generation", {
+                    "story_id": story_id,
+                    "text": refined_story,
+                    "language": request.language
+                })
+            except Exception as d_exc:
+                print(f"Warning: Failed to enqueue TTS task: {d_exc}", flush=True)
+
         return data.data[0] if data.data else {}
     except Exception as exc:
         print(f"Failed to save manual story to database: {exc}", flush=True)
@@ -378,6 +402,20 @@ async def update_story(story_id: str, request: UpdateStoryRequest) -> dict[str, 
              if request.group_ids:
                  group_inserts = [{"story_id": story_id, "group_id": gid} for gid in request.group_ids]
                  client.table("story_groups").insert(group_inserts).execute()
+                 
+        if refined_story:
+            try:
+                dispatcher = TaskDispatcher()
+                # If language is updated via settings we use it, otherwise assume English or keep as is.
+                # Actually we can just pull language from the current request if provided, else "English"
+                # For edits, ideally it uses the locked language, but we pass what we have.
+                dispatcher.enqueue_task("tts_generation", {
+                    "story_id": story_id,
+                    "text": refined_story,
+                    "language": request.language or "English"
+                })
+            except Exception as d_exc:
+                print(f"Warning: Failed to enqueue TTS task on edit: {d_exc}", flush=True)
             
         return data.data[0]
     except HTTPException:
