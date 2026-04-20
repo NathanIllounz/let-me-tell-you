@@ -316,6 +316,12 @@ async def get_stories(user_id: str) -> list[dict[str, Any]]:
                 if path_val.startswith("http"):
                     path_val = path_val.split("/")[-1]
                 story["audio_path"] = get_signed_url(client, path_val)
+            
+            refined_path = story.get("refined_audio_path")
+            if refined_path:
+                if refined_path.startswith("http"):
+                    refined_path = refined_path.split("/")[-1]
+                story["refined_audio_path"] = get_signed_url(client, refined_path)
                 
         print(f"SUCCESS: Fetched {len(stories)} stories with signed URLs.", flush=True)
         return stories

@@ -4,7 +4,12 @@ import api from '../api';
 import StoryMetadataModal from './StoryMetadataModal';
 
 export default function StoryDetail({ story, session, groups, onBack, onUpdate }) {
-  const hasAudio = story.audio_path && !story.audio_path.endsWith('manual_entry');
+  const hasOriginalAudio = story.audio_path && !story.audio_path.endsWith('manual_entry');
+  const hasNarratorAudio = !!story.refined_audio_path;
+  const [activeTrack, setActiveTrack] = useState(hasNarratorAudio ? 'narrator' : 'original');
+  
+  const currentAudioSrc = activeTrack === 'narrator' ? story.refined_audio_path : (hasOriginalAudio ? story.audio_path : null);
+
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -38,7 +43,7 @@ export default function StoryDetail({ story, session, groups, onBack, onUpdate }
     if (isPlaying) {
       audioRef.current.pause();
       setIsPlaying(false);
-    } else {
+    } else if (currentAudioSrc) {
       audioRef.current.play();
       setIsPlaying(true);
     }
@@ -121,12 +126,31 @@ export default function StoryDetail({ story, session, groups, onBack, onUpdate }
           </h1>
           
           {/* Action Buttons & Player */}
+          {/* Player Configuration */}
           <div className="mt-12 pt-10 border-t border-stone-200/60 max-w-xl mx-auto">
-            {hasAudio ? (
-              <div className="bg-white border border-stone-200 shadow-sm rounded-2xl p-5 mb-6">
+            
+            {(hasOriginalAudio && hasNarratorAudio) && (
+              <div className="flex justify-center mb-6 bg-stone-100 p-1 rounded-full items-center max-w-xs mx-auto">
+                <button 
+                  onClick={() => { setIsPlaying(false); setActiveTrack('original'); }}
+                  className={`flex-1 py-2 px-4 rounded-full text-sm font-bold transition-all ${activeTrack === 'original' ? 'bg-white shadow-sm text-stone-800' : 'text-stone-500 hover:text-stone-700'}`}
+                >
+                  Original
+                </button>
+                <button 
+                  onClick={() => { setIsPlaying(false); setActiveTrack('narrator'); }}
+                  className={`flex-1 py-2 px-4 rounded-full text-sm font-bold transition-all ${activeTrack === 'narrator' ? 'bg-white shadow-sm text-indigo-600' : 'text-stone-500 hover:text-stone-700'}`}
+                >
+                  <Sparkles className="w-4 h-4 inline-block mr-1 -mt-1"/> Narrator
+                </button>
+              </div>
+            )}
+
+            {currentAudioSrc ? (
+              <div className="bg-white border border-stone-200 shadow-sm rounded-2xl p-5 mb-6 animate-in fade-in zoom-in-95 duration-300">
                 <audio 
                   ref={audioRef}
-                  src={story.audio_path} 
+                  src={currentAudioSrc} 
                   onEnded={handleAudioEnded}
                   onTimeUpdate={handleTimeUpdate}
                   onLoadedMetadata={handleLoadedMetadata}
@@ -143,49 +167,47 @@ export default function StoryDetail({ story, session, groups, onBack, onUpdate }
                     max={duration || 0}
                     value={currentTime}
                     onChange={handleSeek}
-                    className="flex-1 h-1.5 bg-stone-200 rounded-lg appearance-none cursor-pointer accent-emerald-600 focus:outline-none"
+                    className={`flex-1 h-1.5 rounded-lg appearance-none cursor-pointer focus:outline-none ${activeTrack === 'narrator' ? 'bg-indigo-100 accent-indigo-600' : 'bg-stone-200 accent-emerald-600'}`}
                   />
                   <span className="text-xs font-medium text-stone-400 w-10">{formatTime(duration)}</span>
                 </div>
 
                 {/* Controls */}
                 <div className="flex items-center justify-center gap-6">
-                  <button 
-                    onClick={skipBackward}
-                    className="text-stone-400 hover:text-stone-700 transition-colors"
-                    title="Skip backward 10 seconds"
-                  >
+                  <button onClick={skipBackward} className="text-stone-400 hover:text-stone-700 transition-colors">
                     <Rewind className="w-5 h-5" />
                   </button>
                   
                   <button 
                     onClick={togglePlay}
-                    className="flex items-center justify-center w-12 h-12 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-full transition-colors border border-emerald-100"
+                    className={`flex items-center justify-center w-12 h-12 rounded-full transition-colors border ${activeTrack === 'narrator' ? 'bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border-indigo-100' : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border-emerald-100'}`}
                   >
                     {isPlaying ? <PauseCircle className="w-7 h-7" /> : <PlayCircle className="w-7 h-7 ml-0.5" />}
                   </button>
                   
-                  <button 
-                    onClick={skipForward}
-                    className="text-stone-400 hover:text-stone-700 transition-colors"
-                    title="Skip forward 10 seconds"
-                  >
+                  <button onClick={skipForward} className="text-stone-400 hover:text-stone-700 transition-colors">
                     <FastForward className="w-5 h-5" />
                   </button>
                 </div>
               </div>
-            ) : null}
+            ) : (
+               <div className="flex justify-center mt-6">
+                  <div className="flex items-center gap-2 px-5 py-3 bg-stone-50 border border-stone-200 text-stone-500 rounded-full text-sm font-medium animate-pulse">
+                     <RefreshCw className="w-4 h-4 animate-spin text-stone-400" />
+                     <span>Generating Narrator Audio...</span>
+                  </div>
+               </div>
+            )}
             
-            <div className="flex justify-center">
-              <button 
-                disabled
-                className="flex items-center justify-center gap-2 px-6 py-3 bg-indigo-50/50 text-indigo-400 font-medium rounded-full transition-colors border border-indigo-100/50 cursor-not-allowed text-sm"
-                title="Coming Soon in Phase 5"
-              >
-                <Sparkles className="w-4 h-4 opacity-60" />
-                <span>✨ AI Narration (Soon)</span>
-              </button>
-            </div>
+            {hasOriginalAudio && !hasNarratorAudio && (
+               <div className="flex justify-center mt-6">
+                  <div className="flex items-center gap-2 px-5 py-2.5 bg-indigo-50/50 border border-indigo-100 text-indigo-400 rounded-full text-xs font-medium">
+                     <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                     <span>AI Narrator processing...</span>
+                  </div>
+               </div>
+            )}
+
           </div>
         </header>
 
