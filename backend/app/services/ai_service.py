@@ -67,10 +67,23 @@ class AIService:
         self.model_name = "gemini-2.5-flash"
 
 
-    def process_voice_story(self, audio_file_path: str, language: str = "English") -> dict[str, str]:
+    def process_voice_story(self, audio_file_path: str, language: str = "English", literal_transcription: bool = False) -> dict[str, str]:
         _validate_audio_file(audio_file_path)
 
-        prompt = f"""You are a world-class memoir ghostwriter.
+        if literal_transcription:
+            prompt = f"""You are a professional, highly accurate transcriptionist.
+Your goal is to transcribe the raw speech in the audio exactly as spoken. 
+CRITICAL INSTRUCTION: The final output MUST strictly be written in {language}. If the original audio is in a different language, translate it faithfully and literally without adding narrative flair.
+
+STYLE GUIDELINES:
+1. Do not embellish, summarize, or rewrite the content into a story.
+2. Maintain the raw, unfiltered spoken words as much as possible.
+3. Provide a very basic, short descriptive title based on the content.
+
+Return valid JSON with exactly two keys: 'suggested_title' and 'cleaned_text'.
+"""
+        else:
+            prompt = f"""You are a world-class memoir ghostwriter.
 Your goal is to transform raw, rambling speech (detect the source language automatically) into a polished, first-person narrative memoir.
 CRITICAL INSTRUCTION: The final output MUST strictly be translated and written in {language}. 
 

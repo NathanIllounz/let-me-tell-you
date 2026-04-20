@@ -1,15 +1,17 @@
 import { useEffect, useState, useMemo } from 'react';
-import { BookOpen, RefreshCw, Mic, PenTool, Trash2, Edit3, KeyRound } from 'lucide-react';
+import { BookOpen, RefreshCw, Mic, PenTool, Trash2, Edit3, KeyRound, FileAudio } from 'lucide-react';
 import api from '../api';
 import BookCover from './BookCover';
 import ManualEntry from './ManualEntry';
 import VoiceRecorder from './VoiceRecorder';
+import ImportAudioModal from './ImportAudioModal';
 
 export default function Gallery({ session, onSelectStory, groups, onGroupRefresh, activeView, setActiveView, easyMode }) {
   const [allStories, setAllStories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showWriteModal, setShowWriteModal] = useState(false);
   const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [storyToEdit, setStoryToEdit] = useState(null);
 
   const fetchStories = async () => {
@@ -183,6 +185,14 @@ export default function Gallery({ session, onSelectStory, groups, onGroupRefresh
                            {easyMode ? 'Write Story' : <>Draft<br/>Journal</>}
                          </h3>
                        </div>
+
+                       <div className={`w-full max-w-[200px] mb-2 aspect-[2/3] ${easyMode ? 'p-8' : 'p-6'} bg-[#FDFBF7] rounded-r-xl rounded-l-[4px] border-2 border-dashed border-[#8C7A6B]/80 flex flex-col justify-center items-center text-center gap-4 hover:border-[#5C4D42] hover:bg-[#F3EBE1] transition-all cursor-pointer shadow-sm hover:shadow-md group book-entry`}
+                            onClick={() => setShowImportModal(true)}>
+                         <FileAudio className={`${easyMode ? 'w-12 h-12' : 'w-8 h-8'} text-[#8C7A6B] group-hover:text-[#5C4D42] transition-colors drop-shadow-sm`} />
+                         <h3 className={`${easyMode ? 'text-2xl' : 'text-lg'} font-bold text-[#5C4D42] font-serif leading-tight`}>
+                           {easyMode ? 'Import Audio' : <>Import<br/>Legacy</>}
+                         </h3>
+                       </div>
                      </>
                    )}
 
@@ -209,10 +219,10 @@ export default function Gallery({ session, onSelectStory, groups, onGroupRefresh
           <h2 className="text-4xl font-bold text-[#4A3D33] mb-4 font-serif">Your library starts here.</h2>
           <p className="text-xl text-[#8C7A6B] mb-12 max-w-lg leading-relaxed">Capture your first memory. You can record it just by speaking, or write it in your journal.</p>
           
-          <div className="flex flex-col sm:flex-row gap-6 w-full justify-center max-w-xl">
+          <div className="flex flex-col sm:flex-row gap-6 w-full justify-center max-w-4xl px-4">
             <button 
               onClick={() => setShowVoiceRecorder(true)}
-              className="flex-1 flex flex-col items-center justify-center gap-4 p-8 bg-[#FDFBF7] hover:bg-[#F3EBE1] border-2 border-[#E5DACD] hover:border-[#8C7A6B] rounded-xl transition-all group shadow-md hover:shadow-lg"
+              className="flex-1 flex flex-col items-center justify-center gap-4 p-6 bg-[#FDFBF7] hover:bg-[#F3EBE1] border-2 border-[#E5DACD] hover:border-[#8C7A6B] rounded-xl transition-all group shadow-md hover:shadow-lg"
             >
               <div className="bg-white p-4 rounded-full text-[#5C4D42] shadow-sm group-hover:scale-110 transition-transform border border-[#E5DACD]">
                 <Mic className="w-8 h-8" />
@@ -222,12 +232,22 @@ export default function Gallery({ session, onSelectStory, groups, onGroupRefresh
 
             <button 
               onClick={() => setShowWriteModal(true)}
-              className="flex-1 flex flex-col items-center justify-center gap-4 p-8 bg-gradient-to-br from-[#E5DACD] to-[#D6CBBA] hover:from-[#D6CBBA] hover:to-[#C6BBAC] border border-[#8C7A6B]/50 hover:border-[#5C4D42] rounded-xl transition-all group shadow-md hover:shadow-lg"
+              className="flex-1 flex flex-col items-center justify-center gap-4 p-6 bg-gradient-to-br from-[#E5DACD] to-[#D6CBBA] hover:from-[#D6CBBA] hover:to-[#C6BBAC] border border-[#8C7A6B]/50 hover:border-[#5C4D42] rounded-xl transition-all group shadow-md hover:shadow-lg"
             >
               <div className="bg-white/80 p-4 rounded-full text-[#4A3D33] shadow-sm group-hover:scale-110 transition-transform border border-white/50">
                 <PenTool className="w-8 h-8" />
               </div>
               <span className="font-bold text-[#4A3D33] text-xl font-serif">Write a Memory</span>
+            </button>
+
+            <button 
+              onClick={() => setShowImportModal(true)}
+              className="flex-1 flex flex-col items-center justify-center gap-4 p-6 bg-[#FDFBF7] hover:bg-[#F3EBE1] border-2 border-[#E5DACD] hover:border-[#8C7A6B] rounded-xl transition-all group shadow-md hover:shadow-lg"
+            >
+              <div className="bg-white p-4 rounded-full text-[#5C4D42] shadow-sm group-hover:scale-110 transition-transform border border-[#E5DACD]">
+                <FileAudio className="w-8 h-8" />
+              </div>
+              <span className="font-bold text-[#4A3D33] text-xl font-serif">Import Audio</span>
             </button>
           </div>
         </div>
@@ -259,6 +279,18 @@ export default function Gallery({ session, onSelectStory, groups, onGroupRefresh
             fetchStories();
             onGroupRefresh?.();
           }} 
+        />
+      )}
+
+      {showImportModal && (
+        <ImportAudioModal
+          session={session}
+          groups={groups}
+          onClose={() => setShowImportModal(false)}
+          onSaveSuccess={() => {
+            fetchStories();
+            onGroupRefresh?.();
+          }}
         />
       )}
     </main>

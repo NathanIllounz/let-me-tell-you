@@ -52,7 +52,7 @@ export default function BookCover({ story, session, easyMode, onClick, onEdit, o
               <div className="absolute inset-0 p-4 sm:p-5 flex items-center justify-center text-center">
                 <div className="border-[2px] border-[#D4AF37]/40 shadow-[inset_0_0_15px_rgba(0,0,0,0.6)] p-3 w-full h-full flex flex-col justify-between items-center bg-black/20 backdrop-blur-sm rounded-sm">
                   <div className="w-10 h-1 bg-gradient-to-r from-[#D4AF37] via-[#F9E27E] to-[#D4AF37] rounded-full mt-1 opacity-90 shadow-[0_1px_2px_rgba(0,0,0,0.8)]"></div>
-                  <h2 className={`font-serif font-bold text-wrap pb-2 pt-2 text-[#F3EBE1] drop-shadow-[0_2px_4px_rgba(0,0,0,1)] tracking-wide ${easyMode ? 'text-[1.35rem] leading-tight' : 'text-lg leading-snug'}`}>
+                  <h2 className={`font-serif font-bold text-wrap pb-2 pt-2 bg-gradient-to-br from-[#F9E27E] via-[#D4AF37] to-[#AA771C] text-transparent bg-clip-text drop-shadow-[0_2px_4px_rgba(0,0,0,1)] tracking-wide ${easyMode ? 'text-[1.35rem] leading-tight' : 'text-lg leading-snug'}`}>
                     {story.title || "Untitled Memory"}
                   </h2>
                   <div className="text-[0.65rem] font-bold uppercase tracking-[0.2em] text-[#D4AF37] drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)] opacity-95 mb-1">

@@ -111,9 +111,9 @@ export default function ManualEntry({ session, storyToEdit, groups, onClose, onS
             <label className="block text-sm font-medium text-stone-700 mb-2">Cover Photo (Optional)</label>
             <div className="flex items-center gap-4">
                {previewUrl && (
-                  <img src={previewUrl} alt="Cover Preview" className="w-12 h-16 object-cover rounded shadow-sm border border-stone-200" />
+                  <img src={previewUrl} alt="Cover Preview" className="w-12 h-16 object-cover rounded shadow-sm border border-stone-300" />
                )}
-               <label className="flex items-center justify-center gap-2 px-4 py-2 border border-stone-200 bg-stone-50 hover:bg-stone-100 text-stone-600 rounded-lg cursor-pointer transition-colors text-sm font-medium">
+               <label className="flex items-center justify-center gap-2 px-4 py-2 border border-stone-300 shadow-sm bg-stone-50 hover:bg-stone-100 text-stone-700 rounded-lg cursor-pointer transition-colors text-sm font-bold">
                   <ImagePlus className="w-4 h-4"/>
                   {previewUrl ? 'Change Cover' : 'Upload Cover'}
                   <input type="file" accept="image/*" onChange={handleCoverChange} disabled={loading} className="hidden" />
@@ -130,7 +130,7 @@ export default function ManualEntry({ session, storyToEdit, groups, onClose, onS
               type="text" 
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full text-lg p-3 border border-stone-200 rounded-lg focus:ring-2 focus:ring-stone-400 focus:border-stone-400 outline-none transition-shadow"
+              className="w-full text-lg p-3 border border-stone-300 shadow-sm rounded-lg focus:ring-2 focus:ring-stone-400 focus:border-stone-400 outline-none transition-shadow"
               placeholder="e.g., The summer of 1985..."
               disabled={loading}
               autoFocus
@@ -142,7 +142,7 @@ export default function ManualEntry({ session, storyToEdit, groups, onClose, onS
             <textarea 
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              className="w-full flex-1 p-4 border border-stone-200 rounded-lg focus:ring-2 focus:ring-stone-400 focus:border-stone-400 outline-none transition-shadow resize-none"
+              className="w-full flex-1 p-4 border border-stone-300 shadow-sm rounded-lg focus:ring-2 focus:ring-stone-400 focus:border-stone-400 outline-none transition-shadow resize-none"
               placeholder="Start writing..."
               disabled={loading}
             />
@@ -151,7 +151,7 @@ export default function ManualEntry({ session, storyToEdit, groups, onClose, onS
           <div className="flex gap-4">
             <div className="flex-1">
               <label className="block text-sm font-medium text-stone-700 mb-2">Who can see this?</label>
-              <div className="w-full max-h-[120px] overflow-y-auto p-3 border border-stone-200 rounded-lg bg-white flex flex-col gap-2">
+              <div className="w-full max-h-[120px] overflow-y-auto p-3 border border-stone-300 shadow-sm rounded-lg bg-white flex flex-col gap-2">
                 <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-stone-700">
                   <input
                     type="checkbox"
@@ -182,8 +182,8 @@ export default function ManualEntry({ session, storyToEdit, groups, onClose, onS
               <select 
                 value={language}
                 onChange={(e) => setLanguage(e.target.value)}
-                className="w-full p-3 border border-stone-200 rounded-lg focus:ring-2 focus:ring-stone-400 focus:border-stone-400 outline-none transition-shadow bg-white"
-                disabled={loading}
+                className="w-full p-3 border border-stone-300 shadow-sm rounded-lg focus:ring-2 focus:ring-stone-400 focus:border-stone-400 outline-none transition-shadow bg-white"
+                disabled={loading || !!storyToEdit}
               >
                 <option value="English">English</option>
                 <option value="Hebrew">Hebrew</option>
@@ -192,7 +192,7 @@ export default function ManualEntry({ session, storyToEdit, groups, onClose, onS
             </div>
           </div>
 
-          <div className="flex items-center gap-3 p-4 bg-indigo-50/50 border border-indigo-100 rounded-xl">
+          <div className="flex items-center gap-3 p-4 bg-indigo-50/50 border border-indigo-200 shadow-sm rounded-xl">
             <input 
               type="checkbox"
               id="refineToggle"

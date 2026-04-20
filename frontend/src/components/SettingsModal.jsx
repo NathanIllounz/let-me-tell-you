@@ -80,7 +80,7 @@ export default function SettingsModal({ session, onClose }) {
               type="password" 
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full p-2.5 border border-stone-200 rounded-lg focus:ring-2 focus:ring-stone-400 focus:border-stone-400 outline-none transition-shadow"
+              className="w-full p-2.5 border border-stone-300 shadow-sm rounded-lg focus:ring-2 focus:ring-stone-400 focus:border-stone-400 outline-none transition-shadow"
               placeholder="Leave blank to keep current"
               disabled={loading}
             />
@@ -94,7 +94,7 @@ export default function SettingsModal({ session, onClose }) {
               type="text" 
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
-              className="w-full p-2.5 border border-stone-200 rounded-lg focus:ring-2 focus:ring-stone-400 focus:border-stone-400 outline-none transition-shadow"
+              className="w-full p-2.5 border border-stone-300 shadow-sm rounded-lg focus:ring-2 focus:ring-stone-400 focus:border-stone-400 outline-none transition-shadow"
               placeholder="Your Name"
               disabled={loading}
             />
@@ -109,7 +109,7 @@ export default function SettingsModal({ session, onClose }) {
                 type="tel" 
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                className="w-full p-2.5 border border-stone-200 rounded-lg focus:ring-2 focus:ring-stone-400 focus:border-stone-400 outline-none transition-shadow"
+                className="w-full p-2.5 border border-stone-300 shadow-sm rounded-lg focus:ring-2 focus:ring-stone-400 focus:border-stone-400 outline-none transition-shadow"
                 placeholder="+1 (555)..."
                 disabled={loading}
               />
@@ -122,7 +122,7 @@ export default function SettingsModal({ session, onClose }) {
                 type="text" 
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
-                className="w-full p-2.5 border border-stone-200 rounded-lg focus:ring-2 focus:ring-stone-400 focus:border-stone-400 outline-none transition-shadow"
+                className="w-full p-2.5 border border-stone-300 shadow-sm rounded-lg focus:ring-2 focus:ring-stone-400 focus:border-stone-400 outline-none transition-shadow"
                 placeholder="City Name"
                 disabled={loading}
               />
@@ -137,7 +137,7 @@ export default function SettingsModal({ session, onClose }) {
               type="date" 
               value={dob}
               onChange={(e) => setDob(e.target.value)}
-              className="w-full p-2.5 border border-stone-200 rounded-lg focus:ring-2 focus:ring-stone-400 focus:border-stone-400 outline-none transition-shadow"
+              className="w-full p-2.5 border border-stone-300 shadow-sm rounded-lg focus:ring-2 focus:ring-stone-400 focus:border-stone-400 outline-none transition-shadow"
               disabled={loading}
             />
           </div>
@@ -149,7 +149,7 @@ export default function SettingsModal({ session, onClose }) {
             <select
               value={language}
               onChange={(e) => setLanguage(e.target.value)}
-              className="w-full p-2.5 border border-stone-200 rounded-lg focus:ring-2 focus:ring-stone-400 focus:border-stone-400 outline-none transition-shadow bg-white"
+              className="w-full p-2.5 border border-stone-300 shadow-sm rounded-lg focus:ring-2 focus:ring-stone-400 focus:border-stone-400 outline-none transition-shadow bg-white"
               disabled={loading}
             >
               <option value="en">English</option>

@@ -70,9 +70,9 @@ export default function StoryMetadataModal({ story, session, groups, onClose, on
             <label className="block text-sm font-medium text-stone-700 mb-1">Cover Photo</label>
             <div className="flex items-center gap-4">
                {previewUrl && (
-                  <img src={previewUrl} alt="Cover" className="w-10 h-14 object-cover rounded shadow-sm border border-stone-200" />
+                  <img src={previewUrl} alt="Cover" className="w-10 h-14 object-cover rounded shadow-sm border border-stone-300" />
                )}
-               <label className="flex items-center justify-center gap-2 px-3 py-1.5 border border-stone-200 bg-stone-50 hover:bg-stone-100 text-stone-600 rounded-lg cursor-pointer transition-colors text-xs font-medium">
+               <label className="flex items-center justify-center gap-2 px-3 py-1.5 border border-stone-300 shadow-sm bg-stone-50 hover:bg-stone-100 text-stone-700 rounded-lg cursor-pointer transition-colors text-xs font-bold">
                   <ImagePlus className="w-4 h-4"/>
                   {previewUrl ? 'Change' : 'Upload'}
                   <input type="file" accept="image/*" onChange={handleCoverChange} disabled={loading} className="hidden" />
@@ -88,12 +88,12 @@ export default function StoryMetadataModal({ story, session, groups, onClose, on
               type="text" 
               value={title} 
               onChange={e => setTitle(e.target.value)}
-              className="w-full p-2.5 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-400 outline-none transition-shadow"
+              className="w-full p-2.5 border border-stone-300 shadow-sm rounded-lg focus:ring-2 focus:ring-emerald-400 outline-none transition-shadow"
             />
           </div>
           <div>
             <label className="block text-sm font-medium text-stone-700 mb-1">Visibility</label>
-            <div className="w-full max-h-[120px] overflow-y-auto p-2.5 border border-stone-200 rounded-lg bg-stone-50 flex flex-col gap-2">
+            <div className="w-full max-h-[120px] overflow-y-auto p-2.5 border border-stone-300 shadow-sm rounded-lg bg-stone-50 flex flex-col gap-2">
               <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-stone-700">
                 <input
                   type="checkbox"
@@ -123,13 +123,14 @@ export default function StoryMetadataModal({ story, session, groups, onClose, on
             <label className="block text-sm font-medium text-stone-700 mb-1">Language</label>
             <select 
               value={language} 
-              onChange={e => setLanguage(e.target.value)} 
-              className="w-full p-2.5 border border-stone-200 rounded-lg bg-stone-50"
+              disabled={true}
+              className="w-full p-2.5 border border-stone-300 shadow-sm rounded-lg bg-stone-100 text-stone-500 cursor-not-allowed"
             >
               <option value="English">English</option>
               <option value="French">French</option>
               <option value="Hebrew">Hebrew</option>
             </select>
+            <p className="text-[10px] text-stone-400 mt-1">Language is locked once a story is generated.</p>
           </div>
         </div>
         <button 

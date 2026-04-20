@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Mic, Square, Loader2, X, AlertCircle } from 'lucide-react';
+import { Mic, Square, Loader2, X, AlertCircle, ImagePlus, Sparkles } from 'lucide-react';
 import api from '../api';
 
 export default function VoiceRecorder({ session, groups, onClose, onSaveSuccess }) {
@@ -7,9 +7,19 @@ export default function VoiceRecorder({ session, groups, onClose, onSaveSuccess 
   const [errorMessage, setErrorMessage] = useState('');
   const [groupIds, setGroupIds] = useState([]);
   const [language, setLanguage] = useState('English');
+  const [shouldRefine, setShouldRefine] = useState(true);
+  const [coverFile, setCoverFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState('');
   
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
+
+  const handleCoverChange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      setCoverFile(e.target.files[0]);
+      setPreviewUrl(URL.createObjectURL(e.target.files[0]));
+    }
+  };
 
   const startRecording = async () => {
     try {
@@ -62,8 +72,21 @@ export default function VoiceRecorder({ session, groups, onClose, onSaveSuccess 
       formData.append('group_ids', JSON.stringify(groupIds));
     }
     formData.append('language', language);
+    formData.append('should_refine', shouldRefine);
 
     try {
+      if (coverFile) {
+        const coverData = new FormData();
+        coverData.append('file', coverFile);
+        const coverRes = await api.post('/stories/upload-cover', coverData, {
+          headers: {
+             'Content-Type': 'multipart/form-data',
+             Authorization: `Bearer ${session.access_token}`
+          }
+        });
+        formData.append('cover_url', coverRes.data.cover_url);
+      }
+
       await api.post('/stories/upload-audio', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
@@ -99,10 +122,27 @@ export default function VoiceRecorder({ session, groups, onClose, onSaveSuccess 
           <p className="text-stone-500 mb-6 text-sm leading-relaxed">Speak naturally. Our AI will preserve your voice and generate a polished written story for you.</p>
 
           {(status === 'idle' || status === 'recording') && (
-            <div className="w-full mb-8 text-left space-y-4">
+            <div className="w-full mb-8 text-left space-y-4 max-h-[40vh] overflow-y-auto px-1 pb-2">
+              <div>
+                <label className="block text-sm font-medium text-stone-700 mb-2">Cover Photo (Optional)</label>
+                <div className="flex items-center gap-4">
+                   {previewUrl && (
+                      <img src={previewUrl} alt="Cover Preview" className="w-12 h-16 object-cover rounded shadow-sm border border-stone-300" />
+                   )}
+                   <label className="flex items-center justify-center gap-2 px-4 py-2 border border-stone-300 shadow-sm bg-stone-50 hover:bg-stone-100 text-stone-700 rounded-lg cursor-pointer transition-colors text-sm font-bold">
+                      <ImagePlus className="w-4 h-4"/>
+                      {previewUrl ? 'Change Cover' : 'Upload Cover'}
+                      <input type="file" accept="image/*" onChange={handleCoverChange} disabled={status !== 'idle'} className="hidden" />
+                   </label>
+                   {previewUrl && status === 'idle' && (
+                      <button type="button" onClick={() => { setPreviewUrl(''); setCoverFile(null); }} className="text-xs text-red-500 hover:text-red-700 underline">Remove</button>
+                   )}
+                </div>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-stone-700 mb-2">Who can see this?</label>
-                <div className="w-full max-h-[120px] overflow-y-auto p-3 border border-stone-200 rounded-lg bg-stone-50 flex flex-col gap-2">
+                <div className="w-full max-h-[120px] overflow-y-auto p-3 border border-stone-300 shadow-sm rounded-lg bg-stone-50 flex flex-col gap-2">
                   <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-stone-700">
                     <input
                       type="checkbox"
@@ -134,13 +174,34 @@ export default function VoiceRecorder({ session, groups, onClose, onSaveSuccess 
                 <select 
                   value={language}
                   onChange={(e) => setLanguage(e.target.value)}
-                  className="w-full p-2.5 border border-stone-200 rounded-lg focus:ring-2 focus:ring-stone-400 focus:border-stone-400 outline-none transition-shadow bg-stone-50"
+                  className="w-full p-2.5 border border-stone-300 shadow-sm rounded-lg focus:ring-2 focus:ring-stone-400 focus:border-stone-400 outline-none transition-shadow bg-stone-50"
                   disabled={status !== 'idle'}
                 >
                   <option value="English">English</option>
                   <option value="Hebrew">Hebrew</option>
                   <option value="French">French</option>
                 </select>
+              </div>
+
+              <div className="mt-2">
+                <label className="block text-sm font-medium text-stone-700 mb-2">AI Processing</label>
+                <div className="flex items-center gap-3 p-3 bg-indigo-50/50 border border-indigo-200 shadow-sm rounded-xl">
+                  <input 
+                    type="checkbox"
+                    id="refineAudioToggle"
+                    checked={shouldRefine}
+                    onChange={(e) => setShouldRefine(e.target.checked)}
+                    disabled={status !== 'idle'}
+                    className="w-5 h-5 text-indigo-600 rounded border-stone-300 focus:ring-indigo-500 transition-all cursor-pointer"
+                  />
+                  <label htmlFor="refineAudioToggle" className="flex items-center gap-2 cursor-pointer select-none text-stone-700 font-medium text-sm">
+                    <Sparkles className="w-4 h-4 text-indigo-500" />
+                    Write as polished story
+                  </label>
+                </div>
+                {!shouldRefine && (
+                  <p className="text-xs text-stone-500 mt-2 px-1">AI will transcribe directly without summarizing or narrating.</p>
+                )}
               </div>
             </div>
           )}

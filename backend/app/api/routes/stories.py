@@ -19,7 +19,10 @@ async def upload_audio(
     file: UploadFile = File(...),
     user_id: str | None = Form(None),
     group_ids: str | None = Form(None),
-    language: str | None = Form("English")
+    language: str | None = Form("English"),
+    should_refine: bool = Form(True),
+    title: str | None = Form(None),
+    cover_url: str | None = Form(None)
 ) -> dict[str, Any]:
     if not file.filename:
         raise HTTPException(
@@ -44,10 +47,19 @@ async def upload_audio(
             )
         print("File uploaded to Supabase", flush=True)
 
+        suggested_title = title or "Audio Memory"
+        cleaned_text = ""
+
         print("Starting Gemini processing...", flush=True)
         try:
             ai_service = AIService()
-            result = ai_service.process_voice_story(temp_path, language=language or "English")
+            result = ai_service.process_voice_story(
+                temp_path, 
+                language=language or "English", 
+                literal_transcription=not should_refine
+            )
+            suggested_title = result.get("suggested_title", suggested_title)
+            cleaned_text = result.get("cleaned_text", "")
         except GeminiRateLimitError:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -71,12 +83,13 @@ async def upload_audio(
 
         # Save to Supabase stories table
         response = client.table("stories").insert({
-            "title": result["suggested_title"],
-            "refined_story": result["cleaned_text"],
+            "title": suggested_title,
+            "refined_story": cleaned_text,
             "audio_path": object_path,
             "refined_audio_path": None,
             "user_id": user_id,
             "language": language or "English",
+            "cover_url": cover_url,
         }).execute()
         
         story_id = response.data[0]["id"] if response.data else None
@@ -94,8 +107,8 @@ async def upload_audio(
 
         signed_url = get_signed_url(client, object_path)
         return {
-            "title": result["suggested_title"],
-            "refined_story": result["cleaned_text"],
+            "title": suggested_title,
+            "refined_story": cleaned_text,
             "audio_path": signed_url,
             "refined_audio_path": None,
         }
