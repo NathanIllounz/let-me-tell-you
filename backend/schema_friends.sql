@@ -3,14 +3,36 @@
 -- Run this script in your Supabase SQL Editor
 -- ==========================================
 
--- 1. Create the secure Public Profiles table
+-- 1. Create the secure Public Profiles table if it doesn't exist
 CREATE TABLE IF NOT EXISTS public.profiles (
-    id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
-    username TEXT NOT NULL,
-    tag TEXT NOT NULL,
-    -- Prevent exact clones (e.g. nathan#1234 can only exist once)
-    CONSTRAINT unique_username_tag UNIQUE (username, tag)
+    id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY
 );
+
+-- Safely add columns in case the user already has a standard Supabase Profiles table!
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS username TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS tag TEXT;
+
+-- Safely populate any null handles so the UNIQUE constraint doesn't crash on existing empty rows
+UPDATE public.profiles 
+SET 
+  username = 'user', 
+  tag = LPAD(TRUNC(RANDOM() * 8999 + 1000)::text, 4, '0') 
+WHERE username IS NULL OR tag IS NULL;
+
+-- Backfill missing users entirely from auth.users
+INSERT INTO public.profiles (id, username, tag)
+SELECT 
+    id, 
+    COALESCE(LOWER(SPLIT_PART(email, '@', 1)), 'user'),
+    LPAD(TRUNC(RANDOM() * 8999 + 1000)::text, 4, '0')
+FROM auth.users
+ON CONFLICT (id) DO NOTHING;
+
+-- Enforce constraints now that rows are safe
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS unique_username_tag;
+ALTER TABLE public.profiles ADD CONSTRAINT unique_username_tag UNIQUE (username, tag);
+ALTER TABLE public.profiles ALTER COLUMN username SET NOT NULL;
+ALTER TABLE public.profiles ALTER COLUMN tag SET NOT NULL;
 
 -- Index for insanely fast Discord-style lookups
 CREATE INDEX IF NOT EXISTS idx_profiles_handle ON public.profiles(username, tag);
@@ -65,14 +87,15 @@ CREATE TABLE IF NOT EXISTS public.friend_requests (
     sender_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
     receiver_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
     status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'declined')),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW())
     
     -- Safety constraint: prevent multiple active friend requests identically sent both directions
-    -- We force the alphabetical order check logic so if A limits B, B cannot spam A
-    CONSTRAINT unique_friend_link UNIQUE(
-        LEAST(sender_id, receiver_id), 
-        GREATEST(sender_id, receiver_id)
-    )
+    -- Moved to an Index below to support LEAST/GREATEST expressions
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS unique_friend_link ON public.friend_requests (
+    LEAST(sender_id, receiver_id), 
+    GREATEST(sender_id, receiver_id)
 );
 
 -- Fast lookup indexes for checking connection statuses

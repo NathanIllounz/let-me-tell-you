@@ -208,6 +208,7 @@ function App() {
       {showGroupsModal && (
         <FamilyGroups 
           session={session} 
+          groups={groups}
           onClose={() => setShowGroupsModal(false)}
           onGroupAdded={fetchGroups}
         />

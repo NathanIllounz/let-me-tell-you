@@ -2,13 +2,16 @@ import { useState, useEffect } from 'react';
 import { X, Users, Copy, Check, UsersRound } from 'lucide-react';
 import api from '../api';
 
-export default function FamilyGroups({ session, onClose, onGroupAdded }) {
-  const [activeTab, setActiveTab] = useState('join'); // 'join' or 'create'
+export default function FamilyGroups({ session, groups = [], onClose, onGroupAdded }) {
+  const [activeTab, setActiveTab] = useState('join'); // 'join', 'create', or 'manage'
   
   // Create 
   const [groupName, setGroupName] = useState('');
   const [createdGroup, setCreatedGroup] = useState(null);
   const [copied, setCopied] = useState(false);
+  
+  // Manage
+  const [selectedManageGroupId, setSelectedManageGroupId] = useState('');
   
   // Social Graph
   const [friends, setFriends] = useState([]);
@@ -81,11 +84,11 @@ export default function FamilyGroups({ session, onClose, onGroupAdded }) {
     }
   };
 
-  const handleDirectInvite = async () => {
+  const handleDirectInvite = async (groupIdArg) => {
     if (!selectedFriend) return;
     setLoading(true);
     try {
-       const res = await api.post(`/groups/${createdGroup.id}/invite-friend`, {
+       const res = await api.post(`/groups/${groupIdArg}/invite-friend`, {
           friend_id: selectedFriend,
           user_id: session.user.id
        }, { headers: { Authorization: `Bearer ${session.access_token}` }});
@@ -97,6 +100,14 @@ export default function FamilyGroups({ session, onClose, onGroupAdded }) {
        setLoading(false);
        setTimeout(() => setInviteMessage(null), 3000);
     }
+  };
+
+  const copyAnyCode = (code) => {
+     if (code) {
+        navigator.clipboard.writeText(code);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+     }
   };
 
   return (
@@ -128,7 +139,7 @@ export default function FamilyGroups({ session, onClose, onGroupAdded }) {
                 {createdGroup.invite_code}
               </span>
               <button 
-                onClick={copyCode}
+                onClick={() => copyAnyCode(createdGroup.invite_code)}
                 className="p-2.5 bg-white border border-stone-200 hover:bg-stone-50 text-stone-600 rounded-lg transition-colors flex items-center justify-center shadow-sm"
                 title="Copy Code"
               >
@@ -152,7 +163,7 @@ export default function FamilyGroups({ session, onClose, onGroupAdded }) {
                        ))}
                     </select>
                     <button 
-                       onClick={handleDirectInvite}
+                       onClick={() => handleDirectInvite(createdGroup.id)}
                        disabled={!selectedFriend || loading}
                        className="px-4 py-2.5 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
                     >
@@ -181,13 +192,19 @@ export default function FamilyGroups({ session, onClose, onGroupAdded }) {
                 onClick={() => { setActiveTab('join'); setError(null); }}
                 className={`flex-1 py-4 text-sm font-medium transition-colors ${activeTab === 'join' ? 'text-indigo-600 border-b-2 border-indigo-600 bg-white' : 'text-stone-500 hover:text-stone-700 hover:bg-stone-50'}`}
               >
-                Join a Circle
+                Join
               </button>
               <button 
                 onClick={() => { setActiveTab('create'); setError(null); }}
                 className={`flex-1 py-4 text-sm font-medium transition-colors ${activeTab === 'create' ? 'text-emerald-600 border-b-2 border-emerald-600 bg-white' : 'text-stone-500 hover:text-stone-700 hover:bg-stone-50'}`}
               >
-                Create a Circle
+                Create
+              </button>
+              <button 
+                onClick={() => { setActiveTab('manage'); setError(null); }}
+                className={`flex-1 py-4 text-sm font-medium transition-colors ${activeTab === 'manage' ? 'text-stone-800 border-b-2 border-stone-800 bg-white' : 'text-stone-500 hover:text-stone-700 hover:bg-stone-50'}`}
+              >
+                Manage
               </button>
             </div>
 
@@ -241,6 +258,76 @@ export default function FamilyGroups({ session, onClose, onGroupAdded }) {
                     {loading ? 'Creating...' : 'Create Circle'}
                   </button>
                 </form>
+              )}
+
+              {activeTab === 'manage' && (
+                <div className="flex flex-col gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-stone-700 mb-2">Select Circle</label>
+                    <select 
+                      value={selectedManageGroupId}
+                      onChange={(e) => setSelectedManageGroupId(e.target.value)}
+                      className="w-full text-lg p-3 border border-stone-200 rounded-lg focus:ring-2 focus:ring-stone-400 outline-none bg-stone-50"
+                    >
+                      <option value="">Choose a circle...</option>
+                      {groups.map(g => (
+                        <option key={g.id} value={g.id}>{g.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  {selectedManageGroupId && (
+                    <div className="mt-4 flex flex-col gap-6 animate-in fade-in duration-300">
+                      <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 w-full flex items-center justify-between shadow-inner">
+                        <span className="text-2xl font-mono tracking-widest font-bold text-indigo-700">
+                          {groups.find(g => g.id === selectedManageGroupId)?.invite_code || 'CODE'}
+                        </span>
+                        <button 
+                          onClick={() => copyAnyCode(groups.find(g => g.id === selectedManageGroupId)?.invite_code)}
+                          className="p-2 bg-white border border-stone-200 hover:bg-stone-50 text-stone-600 rounded-lg transition-colors flex items-center justify-center shadow-sm"
+                          title="Copy Code"
+                        >
+                          {copied ? <Check className="w-5 h-5 text-emerald-500" /> : <Copy className="w-5 h-5" />}
+                        </button>
+                      </div>
+
+                      {friends.length > 0 ? (
+                        <div className="w-full text-left bg-white border border-stone-200 p-4 rounded-xl shadow-sm">
+                          <label className="block text-sm font-bold text-stone-800 mb-2">Add Friend to Circle</label>
+                          <div className="flex gap-2">
+                              <select 
+                                value={selectedFriend}
+                                onChange={(e) => setSelectedFriend(e.target.value)}
+                                className="flex-1 p-2.5 border border-stone-200 rounded-lg text-sm bg-stone-50 outline-none"
+                                disabled={loading}
+                              >
+                                <option value="">Select a friend...</option>
+                                {friends.map(f => (
+                                    <option key={f.id} value={f.id}>{f.username}#{f.tag}</option>
+                                ))}
+                              </select>
+                              <button 
+                                onClick={() => handleDirectInvite(selectedManageGroupId)}
+                                disabled={!selectedFriend || loading}
+                                className="px-4 py-2.5 bg-stone-800 text-white font-bold rounded-lg hover:bg-stone-900 transition-colors disabled:opacity-50"
+                              >
+                                Invite
+                              </button>
+                          </div>
+                          {inviteMessage && (
+                              <p className={`text-xs mt-2 font-bold ${inviteMessage.type === 'error' ? 'text-rose-500' : 'text-emerald-500'}`}>
+                                {inviteMessage.text}
+                              </p>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="text-sm text-stone-500 italic p-4 border border-dashed rounded-lg text-center">
+                           Add friends in the Social Hub before inviting them!
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>

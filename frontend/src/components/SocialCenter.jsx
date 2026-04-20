@@ -14,20 +14,30 @@ export default function SocialCenter({ session, onClose }) {
 
   const fetchSocialData = async () => {
     setLoading(true);
+    let myProf = null;
     try {
-      const [profileRes, friendsRes, requestsRes] = await Promise.all([
-        api.get('/friends/me', { headers: { Authorization: `Bearer ${session.access_token}` } }),
-        api.get('/friends/all', { headers: { Authorization: `Bearer ${session.access_token}` } }),
-        api.get('/friends/pending', { headers: { Authorization: `Bearer ${session.access_token}` } })
-      ]);
-      setMyProfile(profileRes.data);
-      setFriends(friendsRes.data || []);
-      setRequests(requestsRes.data || []);
-    } catch (err) {
-      console.error("Failed to load social graph", err);
-    } finally {
-      setLoading(false);
+       const profileRes = await api.get('/friends/me', { headers: { Authorization: `Bearer ${session.access_token}` } });
+       myProf = profileRes.data;
+       setMyProfile(profileRes.data);
+    } catch (e) {
+       console.error("Failed to load profile", e);
     }
+
+    try {
+       const friendsRes = await api.get('/friends/all', { headers: { Authorization: `Bearer ${session.access_token}` } });
+       setFriends(friendsRes.data || []);
+    } catch (e) {
+       console.error("Failed to load friends", e);
+    }
+
+    try {
+       const requestsRes = await api.get('/friends/pending', { headers: { Authorization: `Bearer ${session.access_token}` } });
+       setRequests(requestsRes.data || []);
+    } catch (e) {
+       console.error("Failed to load requests", e);
+    }
+    
+    setLoading(false);
   };
 
   useEffect(() => {
