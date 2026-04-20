@@ -106,17 +106,6 @@ async def upload_audio(
 
         print("Success: Story saved to Supabase Table.", flush=True)
 
-        if cleaned_text:
-            try:
-                dispatcher = TaskDispatcher()
-                dispatcher.enqueue_task("tts_generation", {
-                    "story_id": story_id,
-                    "text": cleaned_text,
-                    "language": language or "English"
-                })
-            except Exception as d_exc:
-                print(f"Warning: Failed to enqueue TTS task: {d_exc}", flush=True)
-
         signed_url = get_signed_url(client, object_path)
         return {
             "title": suggested_title,
@@ -265,17 +254,6 @@ async def create_manual_story(request: ManualStoryRequest) -> dict[str, Any]:
             
         print("Success: Manual story saved to Supabase Table.", flush=True)
 
-        if refined_story:
-            try:
-                dispatcher = TaskDispatcher()
-                dispatcher.enqueue_task("tts_generation", {
-                    "story_id": story_id,
-                    "text": refined_story,
-                    "language": request.language
-                })
-            except Exception as d_exc:
-                print(f"Warning: Failed to enqueue TTS task: {d_exc}", flush=True)
-
         return data.data[0] if data.data else {}
     except Exception as exc:
         print(f"Failed to save manual story to database: {exc}", flush=True)
@@ -409,20 +387,6 @@ async def update_story(story_id: str, request: UpdateStoryRequest) -> dict[str, 
                  group_inserts = [{"story_id": story_id, "group_id": gid} for gid in request.group_ids]
                  client.table("story_groups").insert(group_inserts).execute()
                  
-        if refined_story:
-            try:
-                dispatcher = TaskDispatcher()
-                # If language is updated via settings we use it, otherwise assume English or keep as is.
-                # Actually we can just pull language from the current request if provided, else "English"
-                # For edits, ideally it uses the locked language, but we pass what we have.
-                dispatcher.enqueue_task("tts_generation", {
-                    "story_id": story_id,
-                    "text": refined_story,
-                    "language": request.language or "English"
-                })
-            except Exception as d_exc:
-                print(f"Warning: Failed to enqueue TTS task on edit: {d_exc}", flush=True)
-            
         return data.data[0]
     except HTTPException:
         raise
@@ -432,4 +396,37 @@ async def update_story(story_id: str, request: UpdateStoryRequest) -> dict[str, 
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Could not update story.",
         ) from exc
+
+
+@router.post("/{story_id}/generate-audio")
+async def request_tts_generation(story_id: str, user_id: str) -> dict[str, Any]:
+    if not user_id:
+        raise HTTPException(status_code=400, detail="user_id is required")
+        
+    client = get_supabase_client()
+    try:
+        story_res = client.table("stories").select("id, refined_story, language").eq("id", story_id).eq("user_id", user_id).execute()
+        if not story_res.data:
+            raise HTTPException(status_code=404, detail="Story not found or unauthorized")
+            
+        story = story_res.data[0]
+        if not story.get("refined_story"):
+            raise HTTPException(status_code=400, detail="Story has no text content to narrate.")
+            
+        dispatcher = TaskDispatcher()
+        task_id = dispatcher.enqueue_task("tts_generation", {
+            "story_id": story_id,
+            "text": story["refined_story"],
+            "language": story.get("language", "English")
+        })
+        
+        if not task_id:
+            raise HTTPException(status_code=500, detail="Failed to enqueue TTS task.")
+            
+        return {"status": "queued", "task_id": task_id, "message": "TTS generation started"}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        print(f"Failed to queue TTS generation: {exc}", flush=True)
+        raise HTTPException(status_code=500, detail="Could not queue TTS generation.")
 

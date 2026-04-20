@@ -19,7 +19,18 @@ export default function StoryDetail({ story, session, groups, onBack, onUpdate }
   const [isEditingText, setIsEditingText] = useState(false);
   const [editedContent, setEditedContent] = useState(story.refined_story || '');
   const [savingText, setSavingText] = useState(false);
+  const [generatingNarrator, setGeneratingNarrator] = useState(false);
   const isOwner = story.user_id === session?.user?.id;
+
+  const handleGenerateNarrator = async () => {
+    setGeneratingNarrator(true);
+    try {
+      await api.post(`/stories/${story.id}/generate-audio`, null, { params: { user_id: session.user.id } });
+    } catch (e) {
+      alert("Failed to queue narrator generation. Ensure you are the owner.");
+      setGeneratingNarrator(false);
+    }
+  };
 
   const saveEditedContent = async () => {
     setSavingText(true);
@@ -192,19 +203,39 @@ export default function StoryDetail({ story, session, groups, onBack, onUpdate }
               </div>
             ) : (
                <div className="flex justify-center mt-6">
-                  <div className="flex items-center gap-2 px-5 py-3 bg-stone-50 border border-stone-200 text-stone-500 rounded-full text-sm font-medium animate-pulse">
-                     <RefreshCw className="w-4 h-4 animate-spin text-stone-400" />
-                     <span>Generating Narrator Audio...</span>
-                  </div>
+                 {generatingNarrator ? (
+                    <div className="flex items-center gap-2 px-5 py-3 bg-stone-50 border border-stone-200 text-stone-500 rounded-full text-sm font-medium animate-pulse">
+                       <RefreshCw className="w-4 h-4 animate-spin text-stone-400" />
+                       <span>Generating Narrator Audio...</span>
+                    </div>
+                 ) : (
+                    <button 
+                      onClick={handleGenerateNarrator}
+                      className="flex items-center gap-2 px-6 py-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-full text-sm font-bold transition-all shadow-sm border border-indigo-200"
+                    >
+                      <Sparkles className="w-4 h-4"/>
+                      Generate Narrator Voice
+                    </button>
+                 )}
                </div>
             )}
             
             {hasOriginalAudio && !hasNarratorAudio && (
                <div className="flex justify-center mt-6">
-                  <div className="flex items-center gap-2 px-5 py-2.5 bg-indigo-50/50 border border-indigo-100 text-indigo-400 rounded-full text-xs font-medium">
-                     <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                     <span>AI Narrator processing...</span>
-                  </div>
+                 {generatingNarrator ? (
+                    <div className="flex items-center gap-2 px-5 py-2.5 bg-indigo-50/50 border border-indigo-100 text-indigo-400 rounded-full text-xs font-medium">
+                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                       <span>AI Narrator processing...</span>
+                    </div>
+                 ) : (
+                    <button 
+                      onClick={handleGenerateNarrator}
+                      className="flex items-center gap-2 px-5 py-2.5 bg-white hover:bg-indigo-50 border border-indigo-200 text-indigo-600 rounded-full text-xs font-bold transition-all shadow-sm"
+                    >
+                      <Sparkles className="w-3.5 h-3.5"/>
+                      Generate Narrator AI
+                    </button>
+                 )}
                </div>
             )}
 
