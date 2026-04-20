@@ -10,6 +10,43 @@ export default function StoryMetadataModal({ story, session, groups, onClose, on
   const [coverFile, setCoverFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(story.cover_url || '');
   const [loading, setLoading] = useState(false);
+  const [generatingCover, setGeneratingCover] = useState(false);
+
+  const handleGenerateAICover = async () => {
+    setGeneratingCover(true);
+    try {
+      const res = await api.post(`/stories/${story.id}/generate-cover`, null, { params: { user_id: session.user.id } });
+      const taskId = res.data.task_id;
+      
+      const pollTimer = setInterval(async () => {
+         try {
+            const taskRes = await api.get(`/tasks/${taskId}`, { headers: { Authorization: `Bearer ${session.access_token}` } });
+            if (taskRes.data.status === 'completed') {
+               clearInterval(pollTimer);
+               // Fast re-fetch the single story from gallery to get the cover
+               const storiesRes = await api.get('/stories', { params: { user_id: session.user.id } });
+               const updatedStory = storiesRes.data.find(s => s.id === story.id);
+               if (updatedStory && updatedStory.cover_url) {
+                  setPreviewUrl(updatedStory.cover_url);
+                  setCoverFile(null);
+                  // Update parent State
+                  onUpdate(updatedStory);
+               }
+               setGeneratingCover(false);
+            } else if (taskRes.data.status === 'failed') {
+               clearInterval(pollTimer);
+               alert("AI Cover generation failed.");
+               setGeneratingCover(false);
+            }
+         } catch (e) {
+            console.error("Polling error", e);
+         }
+      }, 4000);
+    } catch (e) {
+      alert("Failed to queue cover generation. Ensure the story has a title.");
+      setGeneratingCover(false);
+    }
+  };
 
   const handleCoverChange = (e) => {
     if (e.target.files && e.target.files[0]) {
@@ -68,18 +105,44 @@ export default function StoryMetadataModal({ story, session, groups, onClose, on
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-stone-700 mb-1">Cover Photo</label>
-            <div className="flex items-center gap-4">
-               {previewUrl && (
-                  <img src={previewUrl} alt="Cover" className="w-10 h-14 object-cover rounded shadow-sm border border-stone-300" />
-               )}
-               <label className="flex items-center justify-center gap-2 px-3 py-1.5 border border-stone-300 shadow-sm bg-stone-50 hover:bg-stone-100 text-stone-700 rounded-lg cursor-pointer transition-colors text-xs font-bold">
-                  <ImagePlus className="w-4 h-4"/>
-                  {previewUrl ? 'Change' : 'Upload'}
-                  <input type="file" accept="image/*" onChange={handleCoverChange} disabled={loading} className="hidden" />
-               </label>
-               {previewUrl && (
-                  <button type="button" disabled={loading} onClick={() => { setPreviewUrl(''); setCoverFile(null); }} className="text-xs text-red-500 hover:text-red-700 underline">Remove</button>
-               )}
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-4">
+                 {generatingCover ? (
+                    <div className="w-10 h-14 bg-indigo-50 border border-indigo-200 rounded animate-pulse shadow-sm"></div>
+                 ) : previewUrl ? (
+                    <img src={previewUrl} alt="Cover" className="w-10 h-14 object-cover rounded shadow-sm border border-stone-300" />
+                 ) : (
+                    <div className="w-10 h-14 bg-stone-100 border border-stone-200 rounded shadow-sm"></div>
+                 )}
+                 
+                 <div className="flex flex-col gap-1.5 items-start">
+                   <div className="flex gap-2 items-center">
+                     <label className="flex items-center justify-center gap-1.5 px-3 py-1.5 border border-stone-300 shadow-sm bg-stone-50 hover:bg-stone-100 text-stone-700 rounded-lg cursor-pointer transition-colors text-[11px] font-bold uppercase tracking-wider">
+                        <ImagePlus className="w-3.5 h-3.5"/>
+                        {previewUrl ? 'Change' : 'Upload'}
+                        <input type="file" accept="image/*" onChange={handleCoverChange} disabled={loading || generatingCover} className="hidden" />
+                     </label>
+                     {previewUrl && !generatingCover && (
+                        <button type="button" disabled={loading} onClick={() => { setPreviewUrl(''); setCoverFile(null); }} className="text-[11px] text-red-500 hover:text-red-700 font-medium px-2">Remove</button>
+                     )}
+                   </div>
+                   
+                   {!generatingCover ? (
+                     <button 
+                       type="button" 
+                       onClick={handleGenerateAICover}
+                       disabled={loading}
+                       className="flex items-center gap-1.5 text-[11px] font-bold text-indigo-600 bg-indigo-50/50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg border border-indigo-100 transition-colors uppercase tracking-wider shadow-sm mt-0.5"
+                     >
+                       ✨ Generate AI
+                     </button>
+                   ) : (
+                     <div className="text-[11px] font-medium text-indigo-400 animate-pulse px-2 flex items-center gap-1">
+                       Painting...
+                     </div>
+                   )}
+                 </div>
+              </div>
             </div>
           </div>
           <div>
