@@ -119,7 +119,7 @@ export default function StoryDetail({ story, session, groups, onBack, onUpdate }
   };
 
   return (
-    <div className="min-h-[calc(100vh-80px)] bg-[#FDFCF7] py-16 px-6 sm:px-12 animate-in fade-in zoom-in-95 duration-700">
+    <div className="min-h-[calc(100vh-80px)] bg-[#FDFCF7] py-16 px-6 sm:px-12 animate-page-turn shadow-[inset_20px_0_40px_-20px_rgba(0,0,0,0.1)]">
       <div className="max-w-3xl mx-auto pb-20">
         
         {/* Back Button */}

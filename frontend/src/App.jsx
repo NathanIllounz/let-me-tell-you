@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { BookOpen, LogOut, User, Settings, Users } from 'lucide-react';
+import { BookOpen, LogOut, User, Settings, Users, Feather } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import api from './api';
 import Auth from './components/Auth';
@@ -58,27 +58,46 @@ function App() {
   }
 
   return (
-    <div className={`bg-[#FDFBF7] min-h-screen text-[#4A3D33] font-sans font-medium transition-all duration-300 ${easyMode ? 'text-lg font-semibold' : ''}`}>
-      <header className="bg-white/80 backdrop-blur-sm border-b border-[#E5DACD] shadow-sm sticky top-0 z-10 py-4 px-6 md:px-12 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <BookOpen className="text-[#8C7A6B] w-6 h-6" />
+    <div className={`bg-[#F3E1CE] relative min-h-screen text-[#4A3D33] font-sans font-medium transition-all duration-300 ${easyMode ? 'text-lg font-semibold' : ''}`}>
+      {/* Subtle vintage library texture overlay */}
+      <div className="fixed inset-0 z-0 bg-[#F3E1CE] pointer-events-none">
+        <div className="absolute inset-0 opacity-[0.03] mix-blend-multiply" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1481627834876-b7833e8f5570?auto=format&fit=crop&w=2000&q=80')", backgroundSize: "cover", backgroundPosition: "center" }}></div>
+      </div>
+
+      <header className="bg-white/80 backdrop-blur-md border-b border-[#D6C2A8] shadow-sm sticky top-0 z-30 py-4 px-6 md:px-12 flex items-center justify-between">
+        <div className="flex items-center gap-4 w-1/3">
+           {/* Composite Logo */}
+           <div className="relative w-10 h-10 flex items-center justify-center p-1 bg-gradient-to-br from-[#c9a174] to-[#8F7C6B] rounded-lg shadow-md border border-white/20">
+             <BookOpen className="text-white/80 w-5 h-5 absolute mt-1 ml-0.5" strokeWidth={1.5} />
+             <Feather className="text-white w-6 h-6 absolute -mt-2 mr-1 rotate-[15deg] drop-shadow-sm" strokeWidth={2.5} />
+           </div>
           <h1 
-            className="text-2xl font-bold tracking-tight text-[#4A3D33] font-serif cursor-pointer hover:text-[#8C7A6B] transition-colors" 
+            className="hidden sm:block text-2xl font-bold tracking-tight text-[#4A3D33] font-serif cursor-pointer hover:text-[#8C7A6B] transition-colors" 
             onClick={() => setSelectedStory(null)}
           >
             Let Me Tell You
           </h1>
         </div>
+
+        {/* Decorative Quote Center */}
+        <div className="hidden lg:flex w-1/3 flex-col items-center justify-center opacity-80">
+           <span className="font-serif italic text-sm text-[#4A0E17]">"What we keep in memory is ours unchanged forever."</span>
+           <div className="flex items-center gap-2 mt-1.5">
+              <span className="w-10 h-[1px] bg-[#c9a174]"></span>
+              <span className="w-1.5 h-1.5 rounded-full bg-[#c9a174]"></span>
+              <span className="w-10 h-[1px] bg-[#c9a174]"></span>
+           </div>
+        </div>
         
         {session && (
-          <div className="flex items-center gap-4 sm:gap-6">
+          <div className="flex items-center justify-end gap-3 sm:gap-6 w-1/3">
             <button 
               onClick={() => setEasyMode(!easyMode)}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-colors ${easyMode ? 'bg-indigo-100 border-indigo-200 text-indigo-700 shadow-inner' : 'bg-stone-50 border-stone-200 text-stone-600 hover:bg-stone-100 shadow-sm'}`}
+              className={`flex items-center gap-3 px-5 py-2.5 rounded-full border-2 transition-all shadow-md font-bold text-sm tracking-widest uppercase ${easyMode ? 'bg-[#c9a174] border-transparent text-[#1e1a17] scale-105' : 'bg-[#3E1519] border-[#561C24] text-[#E5DACD] hover:bg-[#561C24] hover:shadow-lg'}`}
               title="Toggle Easy Mode"
             >
-              <span className="text-xl">👓</span>
-              <span className="hidden sm:inline font-bold">Easy Mode</span>
+              <span className="text-xl leading-none">👓</span>
+              <span className="hidden sm:inline">{easyMode ? 'Exit Easy Mode' : 'Easy Mode'}</span>
             </button>
             
             {!easyMode && (
@@ -115,74 +134,76 @@ function App() {
       </header>
 
       {selectedStory ? (
-        <StoryDetail 
-          story={selectedStory} 
-          session={session}
-          groups={groups}
-          easyMode={easyMode}
-          onBack={() => { setSelectedStory(null); fetchGroups(); }} 
-          onUpdate={(updated) => setSelectedStory(updated)}
-        />
+        <div className="relative z-10">
+          <StoryDetail 
+            story={selectedStory} 
+            session={session}
+            groups={groups}
+            easyMode={easyMode}
+            onBack={() => { setSelectedStory(null); fetchGroups(); }} 
+            onUpdate={(updated) => setSelectedStory(updated)}
+          />
+        </div>
       ) : (
-        <div className="flex max-w-7xl mx-auto w-full">
+        <div className="flex max-w-[1400px] mx-auto w-full relative z-10">
           {!easyMode && (
-            <aside className="hidden md:block w-64 border-r border-[#E5DACD] min-h-[calc(100vh-80px)] p-6 bg-[#FDFBF7]">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="font-bold text-[#4A3D33] font-serif text-lg">My Circles</h3>
+            <aside className="hidden md:block w-80 border-r border-[#561C24] min-h-[calc(100vh-80px)] p-8 bg-[#3E1519] text-[#E5DACD] shadow-[20px_0_40px_-20px_rgba(0,0,0,0.4)] relative z-20">
+              <div className="flex items-center justify-between mb-8 pb-4 border-b border-[#561C24]">
+                <h3 className="font-bold text-white font-serif text-xl tracking-wide">My Circles</h3>
                 <button 
                   onClick={() => setShowGroupsModal(true)}
-                  className="w-7 h-7 rounded-full bg-stone-200 hover:bg-stone-300 flex items-center justify-center text-stone-600 transition-colors"
+                  className="w-8 h-8 rounded-full bg-[#2B0E11] hover:bg-[#c9a174] flex items-center justify-center text-[#c9a174] hover:text-[#1e1a17] transition-all border border-[#561C24] hover:border-transparent shadow-inner font-bold"
                   title="Add/Join Circle"
                 >
                   +
                 </button>
               </div>
               
-              <ul className="space-y-2">
+              <ul className="space-y-3">
                 <li 
                   onClick={() => setActiveView('all')}
-                  className={`cursor-pointer px-3 py-2.5 rounded-lg shadow-sm text-sm font-medium flex items-center gap-2 transition-colors ${activeView === 'all' ? 'bg-[#5C4D42] text-white' : 'bg-white border border-[#E5DACD] text-[#4A3D33] hover:bg-[#F3EBE1]'}`}
+                  className={`cursor-pointer px-4 py-3 rounded-xl shadow-md text-sm font-bold flex items-center gap-3 transition-all ${activeView === 'all' ? 'bg-[#c9a174] text-[#1e1a17] scale-[1.02]' : 'bg-[#2B0E11] border border-white/5 text-[#D6C2A8] hover:bg-[#561C24] hover:text-white'}`}
                 >
-                  <BookOpen className="w-4 h-4" />
+                  <BookOpen className="w-5 h-5" />
                   All Stories
                 </li>
                 <li 
                   onClick={() => setActiveView('my_memories')}
-                  className={`cursor-pointer px-3 py-2.5 rounded-lg shadow-sm text-sm font-medium flex items-center gap-2 transition-colors ${activeView === 'my_memories' ? 'bg-[#6B8569] text-white' : 'bg-white border border-[#E5DACD] text-[#4A3D33] hover:bg-[#F3EBE1]'}`}
+                  className={`cursor-pointer px-4 py-3 rounded-xl shadow-md text-sm font-bold flex items-center gap-3 transition-all ${activeView === 'my_memories' ? 'bg-[#c9a174] text-[#1e1a17] scale-[1.02]' : 'bg-[#2B0E11] border border-white/5 text-[#D6C2A8] hover:bg-[#561C24] hover:text-white'}`}
                 >
-                  <User className="w-4 h-4" />
+                  <User className="w-5 h-5" />
                   My Memories
                 </li>
                 <li 
                   onClick={() => setShowSocialCenter(true)}
-                  className="cursor-pointer px-3 py-2.5 rounded-lg shadow-sm text-sm font-medium flex items-center gap-2 transition-colors bg-white border border-[#E5DACD] text-[#4A3D33] hover:bg-[#F3EBE1]"
+                  className="cursor-pointer px-4 py-3 rounded-xl shadow-md text-sm font-bold flex items-center gap-3 transition-all bg-[#2B0E11] border border-white/5 text-[#D6C2A8] hover:bg-[#561C24] hover:text-white"
                 >
-                  <Users className="w-4 h-4 text-indigo-500" />
+                  <Users className={`w-5 h-5 ${activeView !== 'my_memories' && activeView !== 'all' ? 'text-[#c9a174]' : ''}`} />
                   My Friends
                 </li>
                 
-                <div className="pt-4 pb-2 text-xs font-bold text-stone-400 uppercase tracking-wider">Circles</div>
+                <div className="pt-6 pb-2 text-xs font-bold text-[#c9a174] uppercase tracking-[0.2em]">Family Circles</div>
                 
                 
                 {groups.map(g => (
                   <li 
                     key={g.id} 
                     onClick={() => setActiveView(g.id)}
-                    className={`cursor-pointer px-3 py-2.5 rounded-lg shadow-sm text-sm font-medium flex items-center gap-2 transition-colors ${activeView === g.id ? 'bg-[#988467] text-white' : 'bg-white border border-[#E5DACD] text-[#4A3D33] hover:bg-[#F3EBE1]'}`}
+                    className={`cursor-pointer px-4 py-3 rounded-xl shadow-md text-sm font-bold flex items-center gap-3 transition-all ${activeView === g.id ? 'bg-[#c9a174] text-[#1e1a17] scale-[1.02]' : 'bg-[#2B0E11] border border-white/5 text-[#D6C2A8] hover:bg-[#561C24] hover:text-white'}`}
                   >
-                    <span className={`w-2 h-2 rounded-full ${activeView === g.id ? 'bg-[#D6CBBA]' : 'bg-[#C2B29A]'}`}></span>
+                    <span className={`w-2.5 h-2.5 rounded-full ${activeView === g.id ? 'bg-white' : 'bg-[#c9a174]'}`}></span>
                     {g.name}
                   </li>
                 ))}
                 {groups.length === 0 && (
-                  <li className="text-sm text-stone-500 italic text-center py-4 border border-dashed border-stone-200 rounded-lg">No circles yet.</li>
+                  <li className="text-sm text-[#D6C2A8] italic text-center py-6 border border-dashed border-[#561C24] rounded-xl font-medium">No circles yet.</li>
                 )}
               </ul>
               <button 
                 onClick={() => setShowGroupsModal(true)}
-                className="mt-4 w-full py-2 border border-dashed border-stone-300 rounded-lg text-stone-500 text-sm hover:bg-stone-100 transition-colors"
+                className="mt-6 w-full py-4 border-2 border-dashed border-[#561C24] rounded-xl text-[#c9a174] text-sm font-bold hover:bg-[#c9a174] hover:border-transparent hover:text-[#1e1a17] transition-colors uppercase tracking-widest"
               >
-                + Join or Create
+                + Join / Create
               </button>
             </aside>
           )}
