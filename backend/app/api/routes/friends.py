@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from app.api.deps import get_current_user
 from app.services.supabase_service import get_supabase_client
 
-router = APIRouter(tags=["friends"])
+router = APIRouter()
 
 class FriendRequestPayload(BaseModel):
     username: str
@@ -156,3 +156,22 @@ def get_all_friends(current_user: dict = Depends(get_current_user)) -> list[dict
     profiles_res = client.table("profiles").select("id, username, tag").in_("id", friend_ids).execute()
     
     return profiles_res.data or []
+
+@router.delete("/{friend_id}")
+def remove_friend(friend_id: str, current_user: dict = Depends(get_current_user)) -> dict[str, str]:
+    """Remove a direct friend. The unique constraint uses LEAST/GREATEST logic."""
+    client = get_supabase_client()
+    user_id = current_user["sub"]
+    
+    user_1 = min(user_id, friend_id)
+    user_2 = max(user_id, friend_id)
+    
+    res = client.table("friend_requests").delete().eq("sender_id", user_1).eq("receiver_id", user_2).execute()
+    
+    if not res.data:
+        # Fallback check just in case it was inserted non-alphabetically (bypassing constraint somehow)
+        res2 = client.table("friend_requests").delete().or_(f"and(sender_id.eq.{user_id},receiver_id.eq.{friend_id}),and(sender_id.eq.{friend_id},receiver_id.eq.{user_id})").execute()
+        if not res2.data:
+            raise HTTPException(status_code=404, detail="Friendship not found.")
+            
+    return {"message": "Friend removed"}

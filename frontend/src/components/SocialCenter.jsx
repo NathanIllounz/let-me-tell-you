@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, UserPlus, Check, X, Search, UserCheck } from 'lucide-react';
+import { Users, UserPlus, Check, X, Search, UserCheck, UserMinus } from 'lucide-react';
 import api from '../api';
 
 export default function SocialCenter({ session, onClose }) {
@@ -97,6 +97,19 @@ export default function SocialCenter({ session, onClose }) {
     }
   };
 
+  const handleRemoveFriend = async (friendId) => {
+    if (!window.confirm("Are you sure you want to remove this friend?")) return;
+    try {
+      await api.delete(`/friends/${friendId}`, {
+        headers: { Authorization: `Bearer ${session.access_token}` }
+      });
+      fetchSocialData();
+    } catch (err) {
+      console.error("Failed to remove friend:", err);
+      alert("Failed to remove friend.");
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-white rounded-2xl shadow-xl border border-stone-100 w-full max-w-lg overflow-hidden flex flex-col h-[600px] max-h-[90vh]">
@@ -175,6 +188,13 @@ export default function SocialCenter({ session, onClose }) {
                               {friend.username}<span className="text-stone-400 font-normal">#{friend.tag}</span>
                            </span>
                          </div>
+                         <button 
+                            onClick={() => handleRemoveFriend(friend.id)}
+                            className="p-2 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors border border-transparent hover:border-rose-100"
+                            title="Remove Friend"
+                         >
+                            <UserMinus className="w-5 h-5" />
+                         </button>
                        </div>
                      ))
                    )}
