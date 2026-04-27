@@ -6,38 +6,11 @@ import ManualEntry from './ManualEntry';
 import VoiceRecorder from './VoiceRecorder';
 import ImportAudioModal from './ImportAudioModal';
 
-export default function Gallery({ session, onSelectStory, groups, onGroupRefresh, activeView, setActiveView, easyMode }) {
-  const [allStories, setAllStories] = useState([]);
-  const [loading, setLoading] = useState(true);
+export default function Gallery({ session, onSelectStory, groups, onGroupRefresh, activeView, setActiveView, easyMode, allStories, loading, fetchStories }) {
   const [showWriteModal, setShowWriteModal] = useState(false);
   const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [storyToEdit, setStoryToEdit] = useState(null);
-
-  const fetchStories = async () => {
-    setLoading(true);
-    let url = `/stories?user_id=${session?.user?.id}`;
-
-    try {
-      const response = await api.get(url, {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`
-        }
-      });
-      setAllStories(Array.isArray(response.data) ? response.data : (response.data.stories || []));
-    } catch (error) {
-      console.error('Failed to fetch stories:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (session?.user?.id) {
-      fetchStories();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.user?.id, session?.access_token]); // Removed activeView dependency!
 
   const activeGroup = groups?.find(g => g.id === activeView);
   const isGroupCreator = activeGroup && activeGroup.creator_id === session?.user?.id;

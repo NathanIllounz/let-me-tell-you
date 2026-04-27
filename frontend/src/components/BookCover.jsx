@@ -27,17 +27,16 @@ export default function BookCover({ story, session, easyMode, onClick, onEdit, o
   };
 
   return (
-    <div className="flex flex-col items-center h-full">
+    <div 
+      onClick={onClick}
+      // Give hover rotation and scale locally
+      className="cursor-pointer group w-full max-w-[200px] mb-2"
+      style={{ perspective: '1000px' }}
+    >
       <div 
-        onClick={onClick}
-        // Give hover rotation and scale locally
-        className="cursor-pointer group w-full max-w-[200px] mb-2"
-        style={{ perspective: '1000px' }}
+        className="relative w-full aspect-[2/3] rounded-r-xl rounded-l-[4px] shadow-[4px_4px_10px_rgba(0,0,0,0.3)] group-hover:-translate-y-5 group-hover:scale-105 group-hover:rotate-y-[-12deg] group-hover:rotate-x-[5deg] group-hover:shadow-[15px_22px_30px_rgba(0,0,0,0.5)] transition-all duration-500 ease-out flex"
+        style={{ transformStyle: 'preserve-3d', transformOrigin: 'left center' }}
       >
-        <div 
-          className="relative w-full aspect-[2/3] rounded-r-xl rounded-l-[4px] shadow-[4px_4px_10px_rgba(0,0,0,0.3)] group-hover:-translate-y-5 group-hover:scale-105 group-hover:rotate-y-[-12deg] group-hover:rotate-x-[5deg] group-hover:shadow-[15px_22px_30px_rgba(0,0,0,0.5)] transition-all duration-500 ease-out flex"
-          style={{ transformStyle: 'preserve-3d', transformOrigin: 'left center' }}
-        >
           {/* Spine Graphic Base */}
           <div className="absolute left-0 top-0 bottom-0 w-[6%] bg-black/30 rounded-l-[4px] border-r border-white/20 z-20 shadow-[2px_0_3px_rgba(0,0,0,0.5)] pointer-events-none"></div>
           
@@ -66,58 +65,6 @@ export default function BookCover({ story, session, easyMode, onClick, onEdit, o
             <div className="absolute inset-0 bg-gradient-to-r from-white/20 via-transparent to-black/30 pointer-events-none border border-white/10 rounded-r-xl rounded-l-[4px]"></div>
           </div>
         </div>
-      </div>
-
-      {/* Controls underneath the book */}
-       <div className={`w-full mt-auto flex ${easyMode ? 'flex-col gap-2 mt-4 px-2' : 'justify-center items-end pb-2 opacity-10 gap-2 hover:opacity-100'} transition-all z-10 relative`}>
-        {easyMode ? (
-           <>
-             <button 
-                onClick={onClick}
-                className="w-full py-2.5 bg-[#4A3D33] hover:bg-[#5C4D42] border border-[#3A2D23] text-[#FDFBF7] font-bold rounded-lg flex justify-center items-center gap-2 shadow opacity-100"
-             >
-                <BookOpen className="w-4 h-4"/> Read
-             </button>
-             {isOwner && isManual && (
-               <button 
-                 onClick={(e) => { e.stopPropagation(); onEdit?.(story); }}
-                 className="w-full py-2 bg-[#FDFBF7] hover:bg-[#F3EBE1] border border-[#E5DACD] text-[#8C7A6B] font-bold rounded-lg flex justify-center items-center gap-2"
-               >
-                 <Edit3 className="w-4 h-4"/> Edit
-               </button>
-             )}
-             {isOwner && (
-               <button 
-                 onClick={(e) => { e.stopPropagation(); onDelete?.(story); }}
-                 className="w-full py-2 bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 font-bold rounded-lg flex justify-center items-center gap-2"
-               >
-                 <Trash2 className="w-4 h-4"/> Delete
-               </button>
-             )}
-           </>
-        ) : (
-           <>
-             {isOwner && isManual && (
-               <button 
-                 onClick={(e) => { e.stopPropagation(); onEdit?.(story); }}
-                 className="p-1.5 text-[#8C7A6B] hover:text-[#5C4D42] bg-[#FDFBF7] border border-[#E5DACD] rounded-full shadow-md hover:shadow-lg transition-all"
-                 title="Edit Memory"
-               >
-                 <Edit3 className="w-4 h-4" />
-               </button>
-             )}
-             {isOwner && (
-               <button 
-                 onClick={(e) => { e.stopPropagation(); onDelete?.(story); }}
-                 className="p-1.5 text-stone-400 hover:text-red-600 bg-[#FDFBF7] border border-[#E5DACD] rounded-full shadow-md hover:shadow-lg transition-all"
-                 title="Delete Memory"
-               >
-                 <Trash2 className="w-4 h-4" />
-               </button>
-             )}
-           </>
-        )}
-      </div>
     </div>
   );
 }

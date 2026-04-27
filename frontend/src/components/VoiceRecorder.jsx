@@ -12,6 +12,7 @@ export default function VoiceRecorder({ session, groups, onClose, onSaveSuccess 
   const [shouldRefine, setShouldRefine] = useState(true);
   const [coverFile, setCoverFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState('');
+  const [audioBlob, setAudioBlob] = useState(null);
   
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
@@ -36,9 +37,10 @@ export default function VoiceRecorder({ session, groups, onClose, onSaveSuccess 
         }
       };
 
-      mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
-        await uploadAudio(audioBlob);
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        setAudioBlob(blob);
+        setStatus('reviewing');
         
         // Stop all tracks to turn off the microphone light immediately
         stream.getTracks().forEach(track => track.stop());
@@ -57,7 +59,6 @@ export default function VoiceRecorder({ session, groups, onClose, onSaveSuccess 
   const stopRecording = () => {
     if (mediaRecorderRef.current && status === 'recording') {
       mediaRecorderRef.current.stop();
-      setStatus('processing');
     }
   };
 
@@ -239,6 +240,39 @@ export default function VoiceRecorder({ session, groups, onClose, onSaveSuccess 
                   <span className="text-stone-500 text-xs mt-2 uppercase tracking-wider font-semibold">Tap square to stop</span>
                 </div>
               </button>
+            )}
+
+            {status === 'reviewing' && (
+              <div className="flex flex-col items-center justify-center gap-6 animate-in zoom-in duration-300 w-full">
+                <div className="w-20 h-20 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center border-4 border-amber-100 shadow-inner">
+                  <Mic className="w-8 h-8" />
+                </div>
+                <div className="flex flex-col items-center text-center">
+                  <span className="font-bold text-amber-700 text-lg">Recording Finished</span>
+                  <span className="text-stone-500 text-sm mt-2 leading-relaxed">Do you want to process this recording or cancel and try again?</span>
+                </div>
+                <div className="flex gap-3 w-full px-4 mt-2">
+                  <button 
+                    onClick={() => {
+                      setAudioBlob(null);
+                      setStatus('idle');
+                    }}
+                    className="flex-1 px-4 py-3 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold rounded-xl transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setStatus('processing');
+                      uploadAudio(audioBlob);
+                    }}
+                    className="flex-1 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md transition-all hover:shadow-lg flex items-center justify-center gap-2"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    Process
+                  </button>
+                </div>
+              </div>
             )}
 
             {status === 'processing' && (

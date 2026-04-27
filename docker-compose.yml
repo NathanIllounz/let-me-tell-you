@@ -20,3 +20,21 @@ services:
     restart: unless-stopped
     depends_on:
       - backend
+
+  artist:
+    build:
+      context: ./microservices/artist
+    env_file:
+      - ./microservices/artist/.env
+    restart: unless-stopped
+    depends_on:
+      - backend
+
+  narrator:
+    build:
+      context: ./microservices/narrator
+    env_file:
+      - ./microservices/narrator/.env
+    restart: unless-stopped
+    depends_on:
+      - backend

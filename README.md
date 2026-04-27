@@ -19,7 +19,15 @@ This is a monorepo containing the frontend interface and the core backend engine
 │   ├── .env.example          # Template for frontend environment variables
 │   ├── Dockerfile            # Container definition for the frontend
 │   └── package.json          # Node dependencies
-└── docker-compose.yml        # Unified service orchestrator
+├── microservices/            # Asynchronous background workers
+│   ├── artist/               # AI Image generation worker
+│   │   ├── .env.example      # Template for artist env variables
+│   │   └── Dockerfile        # Container definition for the artist
+│   └── narrator/             # Edge TTS audio generation worker
+│       ├── .env.example      # Template for narrator env variables
+│       └── Dockerfile        # Container definition for the narrator
+├── docker-compose.yml        # Unified service orchestrator
+└── start-dev.ps1             # Local development script to launch all services
 ```
 
 ---
@@ -31,6 +39,7 @@ The easiest way to run the entire stack is using Docker Compose. This ensures yo
 1. **Setup Environment Variables**:
    * Navigate to the `backend/` folder and copy `.env.example` to `.env`. Fill in your API keys (e.g., Gemini, Supabase).
    * Navigate to the `frontend/` folder and copy `.env.example` to `.env`. Fill in your Supabase variables.
+   * Repeat this for `microservices/artist/` and `microservices/narrator/` (create `.env` files for both with required keys).
 2. **Start the Stack**:
    * Open your terminal in the **root** folder (where this `README` is).
    * Run the following command:
@@ -45,7 +54,13 @@ The easiest way to run the entire stack is using Docker Compose. This ensures yo
 
 ## 💻 Manual Setup (For Active Development)
 
-If you need to work closely on the code and prefer a hot-reloading development environment, follow these steps.
+If you need to work closely on the code and prefer a hot-reloading development environment, we have a helper script to launch all four components simultaneously:
+
+```powershell
+# On Windows, run the following in the project root:
+.\start-dev.ps1
+```
+*Note: This script will open 4 separate terminal windows. Make sure your Python virtual environments and npm packages are already installed before running it.*
 
 ### 1. Backend Setup
 

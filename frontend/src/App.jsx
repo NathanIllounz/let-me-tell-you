@@ -19,6 +19,24 @@ function App() {
   const [showSocialCenter, setShowSocialCenter] = useState(false);
   const [activeView, setActiveView] = useState('all'); // 'all', 'my_memories', or group_id
   const [easyMode, setEasyMode] = useState(false);
+  const [allStories, setAllStories] = useState([]);
+  const [loadingStories, setLoadingStories] = useState(true);
+
+  const fetchStories = async () => {
+    if (!session?.user?.id) return;
+    setLoadingStories(true);
+    let url = `/stories?user_id=${session?.user?.id}`;
+    try {
+      const response = await api.get(url, {
+        headers: { Authorization: `Bearer ${session.access_token}` }
+      });
+      setAllStories(Array.isArray(response.data) ? response.data : (response.data.stories || []));
+    } catch (error) {
+      console.error('Failed to fetch stories:', error);
+    } finally {
+      setLoadingStories(false);
+    }
+  };
 
   const fetchGroups = async () => {
     if (!session?.user?.id) return;
@@ -32,7 +50,8 @@ function App() {
 
   useEffect(() => {
     fetchGroups();
-  }, [session?.user?.id]);
+    fetchStories();
+  }, [session?.user?.id, session?.access_token]);
 
   useEffect(() => {
     // Get the initial session
@@ -134,18 +153,21 @@ function App() {
       </header>
 
       {selectedStory ? (
-        <div className="relative z-10">
+        <div className="relative">
           <StoryDetail 
             story={selectedStory} 
             session={session}
             groups={groups}
             easyMode={easyMode}
             onBack={() => { setSelectedStory(null); fetchGroups(); }} 
-            onUpdate={(updated) => setSelectedStory(updated)}
+            onUpdate={(updated) => {
+              setSelectedStory(updated);
+              setAllStories(prev => prev.map(s => s.id === updated.id ? updated : s));
+            }}
           />
         </div>
       ) : (
-        <div className="flex max-w-[1400px] mx-auto w-full relative z-10">
+        <div className="flex max-w-[1400px] mx-auto w-full relative">
           {!easyMode && (
             <aside className="hidden md:block w-80 border-r border-[#561C24] min-h-[calc(100vh-80px)] p-8 bg-[#3E1519] text-[#E5DACD] shadow-[20px_0_40px_-20px_rgba(0,0,0,0.4)] relative z-20">
               <div className="flex items-center justify-between mb-8 pb-4 border-b border-[#561C24]">
@@ -217,6 +239,9 @@ function App() {
               activeView={activeView}
               setActiveView={setActiveView}
               easyMode={easyMode}
+              allStories={allStories}
+              loading={loadingStories}
+              fetchStories={fetchStories}
             />
           </div>
         </div>
