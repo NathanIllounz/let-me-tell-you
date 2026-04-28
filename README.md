@@ -27,7 +27,47 @@ This is a monorepo containing the frontend interface and the core backend engine
 │       ├── .env.example      # Template for narrator env variables
 │       └── Dockerfile        # Container definition for the narrator
 ├── docker-compose.yml        # Unified service orchestrator
+├── database_setup.sql        # Unified SQL script to initialize tables, triggers, and buckets
+├── run-all-tests.ps1         # Master script to execute all frontend/backend/microservice tests
 └── start-dev.ps1             # Local development script to launch all services
+```
+
+---
+
+## 🛠️ Database Setup (Supabase)
+
+Before running the application for the first time on a new instance, you must initialize your database schema.
+
+1. Go to your **Supabase Dashboard** -> **SQL Editor**.
+2. Copy the entire contents of [database_setup.sql](./database_setup.sql) located in the project root.
+3. Paste it into the SQL editor and click **Run**.
+
+This script will automatically:
+* Create all required tables (`profiles`, `stories`, `groups`, etc.).
+* Set up an **Auth Trigger** that automatically generates a user profile and unique tag (e.g., `user#1234`) upon signup.
+* Provision the **Storage Buckets** (`stories-audio`, `story-covers`) with appropriate public access policies.
+
+---
+
+## 🧪 Testing
+
+To ensure the application remains stable during upgrades, we maintain a comprehensive suite of unit and integration tests.
+
+### Running All Tests
+From the project root on Windows, simply run:
+```powershell
+.\run-all-tests.ps1
+```
+This script will execute:
+* **Backend**: FastAPI endpoint tests and mocked service logic.
+* **Microservices**: Integration checks for AI workers.
+* **Frontend**: React component tests via Vitest.
+
+### Live AI Integration Testing
+By default, tests use "mocks" to avoid using API credits. To verify that live external APIs (Gemini, ElevenLabs, Fal.ai) are still working correctly, you can run:
+```bash
+cd backend
+python -m pytest -m integration
 ```
 
 ---

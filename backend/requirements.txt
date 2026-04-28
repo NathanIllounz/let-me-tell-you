@@ -6,3 +6,6 @@ supabase
 google-genai
 pydantic
 pydantic-settings
+pytest
+pytest-asyncio
+httpx
