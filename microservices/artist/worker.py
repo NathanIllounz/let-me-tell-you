@@ -62,10 +62,12 @@ async def daemon_loop():
                 
             print(f"--> [ARTIST] Picked up canvas {task_id} for Story {story_id} ({title})")
             
-            story_res = supabase.table("stories").select("user_id").eq("id", story_id).execute()
+            story_res = supabase.table("stories").select("user_id, cover_url").eq("id", story_id).execute()
             user_id = "anonymous"
+            old_cover_url = None
             if story_res.data:
                 user_id = story_res.data[0].get("user_id", "anonymous")
+                old_cover_url = story_res.data[0].get("cover_url")
             
             # 2. Generate Image
             print(f"Painting image for: {title}...", flush=True)
@@ -78,6 +80,23 @@ async def daemon_loop():
             
             # 4. Update the Story Record
             supabase.table("stories").update({"cover_url": public_url}).eq("id", story_id).execute()
+            
+            # Clean up old orphaned cover if it was replaced
+            if old_cover_url and old_cover_url != public_url:
+                import urllib.parse
+                try:
+                    path = old_cover_url
+                    if "http" in path:
+                        parsed = urllib.parse.urlparse(path)
+                        if "story-covers" in parsed.path:
+                            path = parsed.path.split("/story-covers/")[-1]
+                            path = urllib.parse.unquote(path)
+                    path = path.split('?')[0]
+                    if path:
+                        supabase.storage.from_("story-covers").remove([path])
+                        print(f"DEBUG: Deleted old orphaned cover {path}")
+                except Exception as e:
+                    print(f"DEBUG: Failed to delete old cover {old_cover_url}: {e}")
             
             # 5. Complete the Task
             supabase.table("background_tasks").update({"status": "completed"}).eq("id", task_id).execute()

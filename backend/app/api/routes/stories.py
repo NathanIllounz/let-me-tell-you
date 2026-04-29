@@ -8,7 +8,7 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
 from pydantic import BaseModel
 
 from app.services.ai_service import AIService, GeminiRateLimitError
-from app.services.supabase_service import get_supabase_client, upload_story_audio, get_signed_url, upload_story_cover
+from app.services.supabase_service import get_supabase_client, upload_story_audio, get_signed_url, upload_story_cover, delete_storage_file
 from app.services.dispatcher import TaskDispatcher
 
 
@@ -326,6 +326,19 @@ async def delete_story(story_id: str, user_id: str) -> dict[str, str]:
         
     client = get_supabase_client()
     try:
+        # First fetch the story to get paths of files to delete
+        story_res = client.table("stories").select("audio_path, refined_audio_path, cover_url").eq("id", story_id).eq("user_id", user_id).execute()
+        if story_res.data:
+            story = story_res.data[0]
+            # Delete associated files from storage to prevent orphans
+            if story.get("audio_path"):
+                delete_storage_file(client, story["audio_path"], "stories-audio")
+            if story.get("refined_audio_path"):
+                delete_storage_file(client, story["refined_audio_path"], "stories-audio")
+            if story.get("cover_url"):
+                delete_storage_file(client, story["cover_url"], "story-covers")
+
+        # Delete the DB record (this will also cascade to story_groups if FK is set up correctly)
         client.table("stories").delete().eq("id", story_id).eq("user_id", user_id).execute()
         return {"message": "Story deleted successfully"}
     except Exception as exc:
@@ -374,11 +387,20 @@ async def update_story(story_id: str, request: UpdateStoryRequest) -> dict[str, 
         if "cover_url" in req_dict:
              update_data["cover_url"] = request.cover_url
              
+        # Fetch old story to check if we need to clean up old files
+        old_story_res = client.table("stories").select("cover_url").eq("id", story_id).eq("user_id", request.user_id).execute()
+        
         # Update matching both story_id and user_id for security
         data = client.table("stories").update(update_data).eq("id", story_id).eq("user_id", request.user_id).execute()
         
         if not data.data:
             raise HTTPException(status_code=404, detail="Story not found or unauthorized")
+            
+        # Clean up old cover if it was replaced
+        if "cover_url" in update_data and old_story_res.data:
+            old_cover = old_story_res.data[0].get("cover_url")
+            if old_cover and old_cover != update_data["cover_url"]:
+                delete_storage_file(client, old_cover, "story-covers")
             
         # Manage Many-to-Many updates
         if "group_ids" in req_dict and request.group_ids is not None:

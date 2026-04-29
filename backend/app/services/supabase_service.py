@@ -65,3 +65,28 @@ def get_signed_url(client: Client, file_path: str, bucket_name: str = "stories-a
     if hasattr(res, "signed_url"):
         return res.signed_url
     return str(res)
+
+import urllib.parse
+
+def delete_storage_file(client: Client, file_url_or_path: str, bucket_name: str) -> bool:
+    """Deletes a file from Supabase storage given its path or full URL."""
+    if not file_url_or_path or file_url_or_path == "manual_entry":
+        return False
+        
+    try:
+        path = file_url_or_path
+        if "http" in path:
+            parsed = urllib.parse.urlparse(path)
+            if bucket_name in parsed.path:
+                path = parsed.path.split(f"/{bucket_name}/")[-1]
+                path = urllib.parse.unquote(path)
+        
+        path = path.split('?')[0]
+        
+        if path:
+            client.storage.from_(bucket_name).remove([path])
+            print(f"DEBUG: Deleted orphaned file {path} from {bucket_name}", flush=True)
+            return True
+    except Exception as e:
+        print(f"Failed to delete {file_url_or_path} from {bucket_name}: {e}", flush=True)
+    return False
