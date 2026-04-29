@@ -148,6 +148,18 @@ The frontend is a beautifully designed React application styled with Tailwind CS
    npm run dev
    ```
 
+### 3. Usage & Statistics Dashboard
+
+"Let Me Tell You" includes a professional dashboard to monitor account usage. Users can access this by clicking their profile name in the header.
+
+*   **Proportional Storage Tracking**: Real-time visualization of storage consumption across Original Audio, AI Narrators, and Story Covers. The UI dynamically scales bars relative to a 1GB capacity.
+*   **AI Activity Logs**: Tracks the number of stories processed by the "Ghostwriter" (Gemini), "Artist" (Image Gen), and "Narrator" (TTS) over today, this week, and all-time.
+*   **Backfill Utility**: If you have existing stories and want to calculate their storage usage post-hoc, you can run the internal script:
+    ```bash
+    cd backend
+    python app/scripts/backfill_usage.py
+    ```
+
 ---
 
 ## 🔑 Environment Variables Guide
@@ -163,6 +175,7 @@ To make the application function correctly, both the frontend and backend must s
 ### Frontend Requirements (`frontend/.env`)
 * `VITE_SUPABASE_URL`: Same as the backend Supabase URL.
 * `VITE_SUPABASE_ANON_KEY`: Same as the backend Supabase Anon Key.
+* `VITE_API_URL`: Points to your FastAPI backend (defaults to `http://localhost:8000`).
 
 ---
 

@@ -68,12 +68,24 @@ def get_signed_url(client: Client, file_path: str, bucket_name: str = "stories-a
 
 import urllib.parse
 
-def delete_storage_file(client: Client, file_url_or_path: str, bucket_name: str) -> bool:
-    """Deletes a file from Supabase storage given its path or full URL."""
+def get_remote_file_size(url: str) -> int:
+    import urllib.request
+    try:
+        req = urllib.request.Request(url, method='HEAD')
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            return int(resp.headers.get('Content-Length', 0))
+    except Exception:
+        return 0
+
+def delete_storage_file(client: Client, file_url_or_path: str, bucket_name: str) -> int:
+    """Deletes a file from Supabase storage and returns its size in bytes."""
     if not file_url_or_path or file_url_or_path == "manual_entry":
-        return False
+        return 0
         
     try:
+        # Get size first
+        file_size = get_remote_file_size(file_url_or_path) if "http" in file_url_or_path else 0
+        
         path = file_url_or_path
         if "http" in path:
             parsed = urllib.parse.urlparse(path)
@@ -85,8 +97,34 @@ def delete_storage_file(client: Client, file_url_or_path: str, bucket_name: str)
         
         if path:
             client.storage.from_(bucket_name).remove([path])
-            print(f"DEBUG: Deleted orphaned file {path} from {bucket_name}", flush=True)
-            return True
+            print(f"DEBUG: Deleted orphaned file {path} from {bucket_name} ({file_size} bytes)", flush=True)
+            return file_size
     except Exception as e:
         print(f"Failed to delete {file_url_or_path} from {bucket_name}: {e}", flush=True)
-    return False
+    return 0
+
+def update_user_storage_stat(client: Client, user_id: str, stat_type: str, bytes_delta: int) -> None:
+    """Updates user storage stats for audio, narrator, or cover bytes.
+       stat_type must be 'audio_bytes', 'narrator_bytes', or 'cover_bytes'."""
+    if not user_id or bytes_delta == 0:
+        return
+    try:
+        client.rpc("increment_user_storage", {
+            "p_user_id": user_id,
+            "p_col_name": stat_type,
+            "p_delta": bytes_delta
+        }).execute()
+    except Exception as e:
+        print(f"Failed to update storage stats for user {user_id}: {e}", flush=True)
+
+def log_ai_usage(client: Client, user_id: str, service_type: str) -> None:
+    """Logs an AI generation event."""
+    if not user_id:
+        return
+    try:
+        client.table("ai_usage_logs").insert({
+            "user_id": user_id,
+            "service_type": service_type
+        }).execute()
+    except Exception as e:
+        print(f"Failed to log AI usage for user {user_id}: {e}", flush=True)

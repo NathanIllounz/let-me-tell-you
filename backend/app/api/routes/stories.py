@@ -38,6 +38,7 @@ async def upload_audio(
             content = await file.read()
             temp_file.write(content)
             temp_path = temp_file.name
+            audio_size = Path(temp_path).stat().st_size
 
         with Path(temp_path).open("rb") as binary_file:
             client = get_supabase_client()
@@ -105,6 +106,13 @@ async def upload_audio(
                 print("Failed to parse group_ids JSON", flush=True)
 
         print("Success: Story saved to Supabase Table.", flush=True)
+
+        if user_id:
+            from app.services.supabase_service import update_user_storage_stat, log_ai_usage
+            if audio_size > 0:
+                update_user_storage_stat(client, user_id, 'audio_bytes', audio_size)
+            if should_refine:
+                log_ai_usage(client, user_id, 'ghostwriter')
 
         signed_url = get_signed_url(client, object_path)
         return {
@@ -219,6 +227,9 @@ async def create_manual_story(request: ManualStoryRequest) -> dict[str, Any]:
             title = result["suggested_title"]
             refined_story = result["cleaned_text"]
             print("Manual story refined successfully", flush=True)
+            if user_id:
+                from app.services.supabase_service import log_ai_usage
+                log_ai_usage(client, user_id, 'ghostwriter')
         except GeminiRateLimitError:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -329,14 +340,18 @@ async def delete_story(story_id: str, user_id: str) -> dict[str, str]:
         # First fetch the story to get paths of files to delete
         story_res = client.table("stories").select("audio_path, refined_audio_path, cover_url").eq("id", story_id).eq("user_id", user_id).execute()
         if story_res.data:
+            from app.services.supabase_service import update_user_storage_stat
             story = story_res.data[0]
             # Delete associated files from storage to prevent orphans
             if story.get("audio_path"):
-                delete_storage_file(client, story["audio_path"], "stories-audio")
+                size = delete_storage_file(client, story["audio_path"], "stories-audio")
+                update_user_storage_stat(client, user_id, 'audio_bytes', -size)
             if story.get("refined_audio_path"):
-                delete_storage_file(client, story["refined_audio_path"], "stories-audio")
+                size = delete_storage_file(client, story["refined_audio_path"], "stories-audio")
+                update_user_storage_stat(client, user_id, 'narrator_bytes', -size)
             if story.get("cover_url"):
-                delete_storage_file(client, story["cover_url"], "story-covers")
+                size = delete_storage_file(client, story["cover_url"], "story-covers")
+                update_user_storage_stat(client, user_id, 'cover_bytes', -size)
 
         # Delete the DB record (this will also cascade to story_groups if FK is set up correctly)
         client.table("stories").delete().eq("id", story_id).eq("user_id", user_id).execute()
@@ -399,8 +414,16 @@ async def update_story(story_id: str, request: UpdateStoryRequest) -> dict[str, 
         # Clean up old cover if it was replaced
         if "cover_url" in update_data and old_story_res.data:
             old_cover = old_story_res.data[0].get("cover_url")
-            if old_cover and old_cover != update_data["cover_url"]:
-                delete_storage_file(client, old_cover, "story-covers")
+            new_cover = update_data["cover_url"]
+            if old_cover != new_cover:
+                from app.services.supabase_service import update_user_storage_stat, get_remote_file_size
+                if old_cover:
+                    size = delete_storage_file(client, old_cover, "story-covers")
+                    update_user_storage_stat(client, request.user_id, 'cover_bytes', -size)
+                if new_cover:
+                    # Manually uploaded cover sizes are tracked here
+                    new_size = get_remote_file_size(new_cover) if "http" in new_cover else 0
+                    update_user_storage_stat(client, request.user_id, 'cover_bytes', new_size)
             
         # Manage Many-to-Many updates
         if "group_ids" in req_dict and request.group_ids is not None:
@@ -438,6 +461,7 @@ async def request_tts_generation(story_id: str, user_id: str, gender: str = "fem
         dispatcher = TaskDispatcher()
         task_id = dispatcher.enqueue_task("tts_generation", {
             "story_id": story_id,
+            "user_id": user_id,
             "text": story["refined_story"],
             "language": story.get("language", "English"),
             "gender": gender
@@ -472,6 +496,7 @@ async def request_cover_generation(story_id: str, user_id: str) -> dict[str, Any
         dispatcher = TaskDispatcher()
         task_id = dispatcher.enqueue_task("image_generation", {
             "story_id": story_id,
+            "user_id": user_id,
             "title": story["title"],
             "context": story.get("refined_story", "")[:200]
         })

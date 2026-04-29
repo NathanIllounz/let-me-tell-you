@@ -1,19 +1,34 @@
-import { useState, useRef } from 'react';
-import { Mic, Square, Loader2, X, AlertCircle, ImagePlus, Sparkles } from 'lucide-react';
-import api from '../api';
+import { useState, useRef } from "react";
+import {
+  Mic,
+  Square,
+  Loader2,
+  X,
+  AlertCircle,
+  ImagePlus,
+  Sparkles,
+} from "lucide-react";
+import api from "../api";
 
-export default function VoiceRecorder({ session, groups, onClose, onSaveSuccess }) {
-  const [status, setStatus] = useState('idle'); // idle, recording, processing, error, success
-  const [errorMessage, setErrorMessage] = useState('');
+export default function VoiceRecorder({
+  session,
+  groups,
+  onClose,
+  onSaveSuccess,
+}) {
+  const [status, setStatus] = useState("idle"); // idle, recording, processing, error, success
+  const [errorMessage, setErrorMessage] = useState("");
   const [groupIds, setGroupIds] = useState([]);
   const userLanguageCode = session?.user?.user_metadata?.language;
-  const defaultLangMap = { 'en': 'English', 'fr': 'French', 'he': 'Hebrew' };
-  const [language, setLanguage] = useState(userLanguageCode ? defaultLangMap[userLanguageCode] : 'English');
+  const defaultLangMap = { en: "English", fr: "French", he: "Hebrew" };
+  const [language, setLanguage] = useState(
+    userLanguageCode ? defaultLangMap[userLanguageCode] : "English",
+  );
   const [shouldRefine, setShouldRefine] = useState(true);
   const [coverFile, setCoverFile] = useState(null);
-  const [previewUrl, setPreviewUrl] = useState('');
+  const [previewUrl, setPreviewUrl] = useState("");
   const [audioBlob, setAudioBlob] = useState(null);
-  
+
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
 
@@ -38,26 +53,28 @@ export default function VoiceRecorder({ session, groups, onClose, onSaveSuccess 
       };
 
       mediaRecorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
         setAudioBlob(blob);
-        setStatus('reviewing');
-        
+        setStatus("reviewing");
+
         // Stop all tracks to turn off the microphone light immediately
-        stream.getTracks().forEach(track => track.stop());
+        stream.getTracks().forEach((track) => track.stop());
       };
 
       mediaRecorder.start();
-      setStatus('recording');
-      setErrorMessage('');
+      setStatus("recording");
+      setErrorMessage("");
     } catch (err) {
-      console.error('Error accessing microphone:', err);
-      setStatus('error');
-      setErrorMessage("Microphone access denied or unavailable. Please check your browser permissions.");
+      console.error("Error accessing microphone:", err);
+      setStatus("error");
+      setErrorMessage(
+        "Microphone access denied or unavailable. Please check your browser permissions.",
+      );
     }
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && status === 'recording') {
+    if (mediaRecorderRef.current && status === "recording") {
       mediaRecorderRef.current.stop();
     }
   };
@@ -65,54 +82,56 @@ export default function VoiceRecorder({ session, groups, onClose, onSaveSuccess 
   const uploadAudio = async (blob) => {
     const formData = new FormData();
     // Defaulting to .webm typically works across Chromium/Firefox MediaRecorder outputs
-    formData.append('file', blob, 'recording.webm');
-    
+    formData.append("file", blob, "recording.webm");
+
     // Pass user ID so backend respects Row Level Security and binds the story correctly
     if (session?.user?.id) {
-      formData.append('user_id', session.user.id);
+      formData.append("user_id", session.user.id);
     }
     if (groupIds.length > 0) {
-      formData.append('group_ids', JSON.stringify(groupIds));
+      formData.append("group_ids", JSON.stringify(groupIds));
     }
-    formData.append('language', language);
-    formData.append('should_refine', shouldRefine);
+    formData.append("language", language);
+    formData.append("should_refine", shouldRefine);
 
     try {
       if (coverFile) {
         const coverData = new FormData();
-        coverData.append('file', coverFile);
-        const coverRes = await api.post('/stories/upload-cover', coverData, {
+        coverData.append("file", coverFile);
+        const coverRes = await api.post("/stories/upload-cover", coverData, {
           headers: {
-             'Content-Type': 'multipart/form-data',
-             Authorization: `Bearer ${session.access_token}`
-          }
+            "Content-Type": "multipart/form-data",
+            Authorization: `Bearer ${session.access_token}`,
+          },
         });
-        formData.append('cover_url', coverRes.data.cover_url);
+        formData.append("cover_url", coverRes.data.cover_url);
       }
 
-      await api.post('/stories/upload-audio', formData, {
+      await api.post("/stories/upload-audio", formData, {
         headers: {
-          'Content-Type': 'multipart/form-data',
-          Authorization: `Bearer ${session.access_token}`
-        }
+          "Content-Type": "multipart/form-data",
+          Authorization: `Bearer ${session.access_token}`,
+        },
       });
-      setStatus('success');
+      setStatus("success");
       onSaveSuccess();
       setTimeout(() => {
-         onClose();
+        onClose();
       }, 1500);
     } catch (err) {
-      console.error('Upload failed:', err);
-      setStatus('error');
-      setErrorMessage("Failed to process your memory. Our AI might be busy, or there was a network glitch.");
+      console.error("Upload failed:", err);
+      setStatus("error");
+      setErrorMessage(
+        "Failed to process your memory. Our AI might be busy, or there was a network glitch.",
+      );
     }
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-md animate-in fade-in duration-200">
       <div className="bg-white rounded-3xl shadow-2xl border border-stone-100 w-full max-w-md overflow-hidden relative">
-        {(status === 'idle' || status === 'error') && (
-          <button 
+        {(status === "idle" || status === "error") && (
+          <button
             onClick={onClose}
             className="absolute top-4 right-4 p-2 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-full transition-colors z-10"
           >
@@ -121,30 +140,58 @@ export default function VoiceRecorder({ session, groups, onClose, onSaveSuccess 
         )}
 
         <div className="p-10 flex flex-col items-center text-center mt-2">
-          <h2 className="text-2xl font-bold text-stone-800 font-serif mb-3">Capture a Memory</h2>
-          <p className="text-stone-500 mb-6 text-sm leading-relaxed">Speak naturally. Our AI will preserve your voice and generate a polished written story for you.</p>
+          <h2 className="text-2xl font-bold text-stone-800 font-serif mb-3">
+            Capture a Memory
+          </h2>
+          <p className="text-stone-500 mb-6 text-sm leading-relaxed">
+            Speak naturally. Our AI will preserve your voice and generate a
+            polished written story for you.
+          </p>
 
-          {(status === 'idle' || status === 'recording') && (
+          {(status === "idle" || status === "recording") && (
             <div className="w-full mb-8 text-left space-y-4 max-h-[40vh] overflow-y-auto px-1 pb-2">
               <div>
-                <label className="block text-sm font-medium text-stone-700 mb-2">Cover Photo (Optional)</label>
+                <label className="block text-sm font-medium text-stone-700 mb-2">
+                  Cover Photo (Optional)
+                </label>
                 <div className="flex items-center gap-4">
-                   {previewUrl && (
-                      <img src={previewUrl} alt="Cover Preview" className="w-12 h-16 object-cover rounded shadow-sm border border-stone-300" />
-                   )}
-                   <label className="flex items-center justify-center gap-2 px-4 py-2 border border-stone-300 shadow-sm bg-stone-50 hover:bg-stone-100 text-stone-700 rounded-lg cursor-pointer transition-colors text-sm font-bold">
-                      <ImagePlus className="w-4 h-4"/>
-                      {previewUrl ? 'Change Cover' : 'Upload Cover'}
-                      <input type="file" accept="image/*" onChange={handleCoverChange} disabled={status !== 'idle'} className="hidden" />
-                   </label>
-                   {previewUrl && status === 'idle' && (
-                      <button type="button" onClick={() => { setPreviewUrl(''); setCoverFile(null); }} className="text-xs text-red-500 hover:text-red-700 underline">Remove</button>
-                   )}
+                  {previewUrl && (
+                    <img
+                      src={previewUrl}
+                      alt="Cover Preview"
+                      className="w-12 h-16 object-cover rounded shadow-sm border border-stone-300"
+                    />
+                  )}
+                  <label className="flex items-center justify-center gap-2 px-4 py-2 border border-stone-300 shadow-sm bg-stone-50 hover:bg-stone-100 text-stone-700 rounded-lg cursor-pointer transition-colors text-sm font-bold">
+                    <ImagePlus className="w-4 h-4" />
+                    {previewUrl ? "Change Cover" : "Upload Cover"}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleCoverChange}
+                      disabled={status !== "idle"}
+                      className="hidden"
+                    />
+                  </label>
+                  {previewUrl && status === "idle" && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPreviewUrl("");
+                        setCoverFile(null);
+                      }}
+                      className="text-xs text-red-500 hover:text-red-700 underline"
+                    >
+                      Remove
+                    </button>
+                  )}
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-stone-700 mb-2">Who can see this?</label>
+                <label className="block text-sm font-medium text-stone-700 mb-2">
+                  Who can see this?
+                </label>
                 <div className="w-full max-h-[120px] overflow-y-auto p-3 border border-stone-300 shadow-sm rounded-lg bg-stone-50 flex flex-col gap-2">
                   <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-stone-700">
                     <input
@@ -155,17 +202,24 @@ export default function VoiceRecorder({ session, groups, onClose, onSaveSuccess 
                     />
                     Only Me (Private)
                   </label>
-                  {groups?.map(g => (
-                    <label key={g.id} className="flex items-center gap-2 cursor-pointer text-sm text-stone-600">
+                  {groups?.map((g) => (
+                    <label
+                      key={g.id}
+                      className="flex items-center gap-2 cursor-pointer text-sm text-stone-600"
+                    >
                       <input
                         type="checkbox"
                         checked={groupIds.includes(g.id)}
                         onChange={(e) => {
-                          if (e.target.checked) setGroupIds(prev => [...prev, g.id]);
-                          else setGroupIds(prev => prev.filter(id => id !== g.id));
+                          if (e.target.checked)
+                            setGroupIds((prev) => [...prev, g.id]);
+                          else
+                            setGroupIds((prev) =>
+                              prev.filter((id) => id !== g.id),
+                            );
                         }}
                         className="w-4 h-4 text-emerald-600 rounded border-stone-300 focus:ring-emerald-500"
-                        disabled={status !== 'idle'}
+                        disabled={status !== "idle"}
                       />
                       {g.name}
                     </label>
@@ -173,12 +227,14 @@ export default function VoiceRecorder({ session, groups, onClose, onSaveSuccess 
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-stone-700 mb-2">Story Language</label>
-                <select 
+                <label className="block text-sm font-medium text-stone-700 mb-2">
+                  Story Language
+                </label>
+                <select
                   value={language}
                   onChange={(e) => setLanguage(e.target.value)}
                   className="w-full p-2.5 border border-stone-300 shadow-sm rounded-lg focus:ring-2 focus:ring-stone-400 focus:border-stone-400 outline-none transition-shadow bg-stone-50"
-                  disabled={status !== 'idle'}
+                  disabled={status !== "idle"}
                 >
                   <option value="English">English</option>
                   <option value="Hebrew">Hebrew</option>
@@ -187,44 +243,53 @@ export default function VoiceRecorder({ session, groups, onClose, onSaveSuccess 
               </div>
 
               <div className="mt-2">
-                <label className="block text-sm font-medium text-stone-700 mb-2">AI Processing</label>
+                <label className="block text-sm font-medium text-stone-700 mb-2">
+                  AI Processing
+                </label>
                 <div className="flex items-center gap-3 p-3 bg-indigo-50/50 border border-indigo-200 shadow-sm rounded-xl">
-                  <input 
+                  <input
                     type="checkbox"
                     id="refineAudioToggle"
                     checked={shouldRefine}
                     onChange={(e) => setShouldRefine(e.target.checked)}
-                    disabled={status !== 'idle'}
+                    disabled={status !== "idle"}
                     className="w-5 h-5 text-indigo-600 rounded border-stone-300 focus:ring-indigo-500 transition-all cursor-pointer"
                   />
-                  <label htmlFor="refineAudioToggle" className="flex items-center gap-2 cursor-pointer select-none text-stone-700 font-medium text-sm">
+                  <label
+                    htmlFor="refineAudioToggle"
+                    className="flex items-center gap-2 cursor-pointer select-none text-stone-700 font-medium text-sm"
+                  >
                     <Sparkles className="w-4 h-4 text-indigo-500" />
                     Write as polished story
                   </label>
                 </div>
                 {!shouldRefine && (
-                  <p className="text-xs text-stone-500 mt-2 px-1">AI will transcribe directly without summarizing or narrating.</p>
+                  <p className="text-xs text-stone-500 mt-2 px-1">
+                    AI will transcribe directly without summarizing or
+                    narrating.
+                  </p>
                 )}
               </div>
             </div>
           )}
 
           <div className="flex flex-col items-center justify-center min-h-[160px] w-full">
-            
-            {status === 'idle' && (
-              <button 
+            {status === "idle" && (
+              <button
                 onClick={startRecording}
                 className="group relative flex flex-col items-center justify-center gap-5 transition-all"
               >
                 <div className="w-24 h-24 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center border-[6px] border-rose-100 shadow-sm group-hover:scale-105 group-hover:bg-rose-100 group-hover:border-rose-200 transition-all duration-300">
                   <Mic className="w-10 h-10" />
                 </div>
-                <span className="font-bold text-stone-700 group-hover:text-rose-700 transition-colors tracking-wide">Start Recording</span>
+                <span className="font-bold text-stone-700 group-hover:text-rose-700 transition-colors tracking-wide">
+                  Start Recording
+                </span>
               </button>
             )}
 
-            {status === 'recording' && (
-              <button 
+            {status === "recording" && (
+              <button
                 onClick={stopRecording}
                 className="group flex flex-col items-center justify-center gap-6"
               >
@@ -236,34 +301,43 @@ export default function VoiceRecorder({ session, groups, onClose, onSaveSuccess 
                   </div>
                 </div>
                 <div className="flex flex-col items-center">
-                  <span className="font-bold text-rose-600 animate-pulse tracking-widest uppercase text-sm">Recording...</span>
-                  <span className="text-stone-500 text-xs mt-2 uppercase tracking-wider font-semibold">Tap square to stop</span>
+                  <span className="font-bold text-rose-600 animate-pulse tracking-widest uppercase text-sm">
+                    Recording...
+                  </span>
+                  <span className="text-stone-500 text-xs mt-2 uppercase tracking-wider font-semibold">
+                    Tap square to stop
+                  </span>
                 </div>
               </button>
             )}
 
-            {status === 'reviewing' && (
+            {status === "reviewing" && (
               <div className="flex flex-col items-center justify-center gap-6 animate-in zoom-in duration-300 w-full">
                 <div className="w-20 h-20 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center border-4 border-amber-100 shadow-inner">
                   <Mic className="w-8 h-8" />
                 </div>
                 <div className="flex flex-col items-center text-center">
-                  <span className="font-bold text-amber-700 text-lg">Recording Finished</span>
-                  <span className="text-stone-500 text-sm mt-2 leading-relaxed">Do you want to process this recording or cancel and try again?</span>
+                  <span className="font-bold text-amber-700 text-lg">
+                    Recording Finished
+                  </span>
+                  <span className="text-stone-500 text-sm mt-2 leading-relaxed">
+                    Do you want to process this recording or cancel and try
+                    again?
+                  </span>
                 </div>
                 <div className="flex gap-3 w-full px-4 mt-2">
-                  <button 
+                  <button
                     onClick={() => {
                       setAudioBlob(null);
-                      setStatus('idle');
+                      setStatus("idle");
                     }}
                     className="flex-1 px-4 py-3 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold rounded-xl transition-colors"
                   >
                     Cancel
                   </button>
-                  <button 
+                  <button
                     onClick={() => {
-                      setStatus('processing');
+                      setStatus("processing");
                       uploadAudio(audioBlob);
                     }}
                     className="flex-1 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md transition-all hover:shadow-lg flex items-center justify-center gap-2"
@@ -275,43 +349,53 @@ export default function VoiceRecorder({ session, groups, onClose, onSaveSuccess 
               </div>
             )}
 
-            {status === 'processing' && (
+            {status === "processing" && (
               <div className="flex flex-col items-center justify-center gap-6 animate-in zoom-in duration-300">
                 <div className="w-24 h-24 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center border-4 border-indigo-100 shadow-inner">
                   <Loader2 className="w-10 h-10 animate-spin" />
                 </div>
                 <div className="flex flex-col items-center text-center">
-                  <span className="font-bold text-indigo-800 text-lg">Writing your memoir...</span>
-                  <span className="text-stone-500 text-sm mt-2 leading-relaxed">Our AI is analyzing your voice and polishing your story. This takes about 10-20 seconds.</span>
+                  <span className="font-bold text-indigo-800 text-lg">
+                    Writing your memoir...
+                  </span>
+                  <span className="text-stone-500 text-sm mt-2 leading-relaxed">
+                    Our AI is analyzing your voice and polishing your story.
+                    This takes about 10-20 seconds.
+                  </span>
                 </div>
               </div>
             )}
 
-            {status === 'success' && (
+            {status === "success" && (
               <div className="flex flex-col items-center justify-center gap-4 animate-in zoom-in duration-300">
                 <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center border border-emerald-200">
                   <Mic className="w-8 h-8" />
                 </div>
-                <span className="font-bold text-emerald-700 text-xl font-serif">Memory Captured!</span>
+                <span className="font-bold text-emerald-700 text-xl font-serif">
+                  Memory Captured!
+                </span>
               </div>
             )}
 
-            {status === 'error' && (
+            {status === "error" && (
               <div className="flex flex-col items-center justify-center gap-4 w-full animate-in slide-in-from-bottom-4 duration-300">
                 <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mb-1">
                   <AlertCircle className="w-8 h-8" />
                 </div>
-                <span className="font-bold text-red-700">Oops, something went wrong</span>
-                <p className="text-stone-600 text-sm bg-red-50 p-4 rounded-xl border border-red-100">{errorMessage}</p>
-                <button 
-                  onClick={() => setStatus('idle')}
+                <span className="font-bold text-red-700">
+                  Oops, something went wrong
+                </span>
+                <p className="text-stone-600 text-sm bg-red-50 p-4 rounded-xl border border-red-100">
+                  {errorMessage}
+                </p>
+                <button
+                  onClick={() => setStatus("idle")}
                   className="mt-3 px-6 py-2.5 bg-stone-800 text-white rounded-xl font-medium hover:bg-stone-900 transition-colors shadow-sm"
                 >
                   Try Again
                 </button>
               </div>
             )}
-
           </div>
         </div>
       </div>

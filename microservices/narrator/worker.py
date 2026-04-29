@@ -54,6 +54,7 @@ async def daemon_loop():
             payload = task.get("payload", {})
             
             story_id = payload.get("story_id")
+            user_id = payload.get("user_id") # Get from payload first
             text = payload.get("text", "")
             language = payload.get("language", "English")
             gender = payload.get("gender", "female")
@@ -65,11 +66,22 @@ async def daemon_loop():
                 
             print(f"--> [NARRATOR] Picked up task {task_id} for Story {story_id} ({language})")
             
-            # Fetch story to get user_id for the bucket path
-            story_res = supabase.table("stories").select("user_id").eq("id", story_id).execute()
-            user_id = "anonymous"
+            # Fetch story to get user_id (if missing) and old audio size for delta
+            story_res = supabase.table("stories").select("user_id, refined_audio_path").eq("id", story_id).execute()
+            old_audio_path = None
+            old_size = 0
             if story_res.data:
-                user_id = story_res.data[0].get("user_id", "anonymous")
+                if not user_id:
+                    user_id = story_res.data[0].get("user_id", "anonymous")
+                old_audio_path = story_res.data[0].get("refined_audio_path")
+                if old_audio_path and "http" in old_audio_path:
+                    import urllib.request
+                    try:
+                        req = urllib.request.Request(old_audio_path, method='HEAD')
+                        with urllib.request.urlopen(req, timeout=5) as resp:
+                            old_size = int(resp.headers.get('Content-Length', 0))
+                    except Exception:
+                        pass
             
             # 2. Generate Audio
             print(f"Generating audio for: {story_id}...", flush=True)
@@ -81,6 +93,25 @@ async def daemon_loop():
             
             # 4. Update the Story Record
             supabase.table("stories").update({"refined_audio_path": storage_path}).eq("id", story_id).execute()
+            
+            # Update Usage Stats
+            if user_id != "anonymous":
+                new_size = os.path.getsize(mp3_path) if os.path.exists(mp3_path) else 0
+                delta = new_size - old_size
+                try:
+                    supabase.rpc("increment_user_storage", {
+                        "p_user_id": user_id,
+                        "p_col_name": "narrator_bytes",
+                        "p_delta": delta
+                    }).execute()
+                    
+                    supabase.table("ai_usage_logs").insert({
+                        "user_id": user_id,
+                        "service_type": "narrator"
+                    }).execute()
+                    print(f"DEBUG: Logged AI usage and storage delta ({delta} bytes) for user {user_id}")
+                except Exception as e:
+                    print(f"DEBUG: Failed to update usage stats: {e}")
             
             # 5. Complete the Task
             supabase.table("background_tasks").update({"status": "completed"}).eq("id", task_id).execute()

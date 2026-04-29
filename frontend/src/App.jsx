@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { BookOpen, LogOut, User, Settings, Users, Feather } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { supabase } from './supabaseClient';
 import api from './api';
 import Auth from './components/Auth';
@@ -9,11 +10,15 @@ import SettingsModal from './components/SettingsModal';
 import FamilyGroups from './components/FamilyGroups';
 import SocialCenter from './components/SocialCenter';
 import LandingPage from './components/LandingPage';
+import ProfileDropdown from './components/ProfileDropdown';
+import UsageModal from './components/UsageModal';
 
 function App() {
+  const { t, i18n } = useTranslation();
   const [session, setSession] = useState(null);
   const [selectedStory, setSelectedStory] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [showUsage, setShowUsage] = useState(false);
   const [groups, setGroups] = useState([]);
   const [showGroupsModal, setShowGroupsModal] = useState(false);
   const [showSocialCenter, setShowSocialCenter] = useState(false);
@@ -51,6 +56,11 @@ function App() {
   useEffect(() => {
     fetchGroups();
     fetchStories();
+    
+    // Sync i18n with user preference
+    if (session?.user?.user_metadata?.language) {
+      i18n.changeLanguage(session.user.user_metadata.language);
+    }
   }, [session?.user?.id, session?.access_token]);
 
   useEffect(() => {
@@ -94,7 +104,7 @@ function App() {
             className="hidden sm:block text-2xl font-bold tracking-tight text-[#4A3D33] font-serif cursor-pointer hover:text-[#8C7A6B] transition-colors" 
             onClick={() => setSelectedStory(null)}
           >
-            Let Me Tell You
+            {t('app_title')}
           </h1>
         </div>
 
@@ -116,37 +126,16 @@ function App() {
               title="Toggle Easy Mode"
             >
               <span className="text-xl leading-none">👓</span>
-              <span className="hidden sm:inline">{easyMode ? 'Exit Easy Mode' : 'Easy Mode'}</span>
+              <span className="hidden sm:inline">{easyMode ? t('nav.easy_mode_on') : t('nav.easy_mode_off')}</span>
             </button>
             
             {!easyMode && (
-              <>
-                <div className="flex items-center gap-2">
-                  <div className="bg-stone-100 p-1.5 rounded-full border border-stone-200 hidden sm:block">
-                    <User className="w-4 h-4 text-stone-500" />
-                  </div>
-                  <span className="text-sm font-medium text-stone-600 truncate max-w-[150px] sm:max-w-[200px]">
-                    {session.user.user_metadata?.full_name || session.user.email}
-                  </span>
-                  <button 
-                    onClick={() => setShowSettings(true)}
-                    className="text-stone-400 hover:text-stone-700 transition-colors ml-1 p-1.5 hover:bg-stone-100 rounded-full" 
-                    title="Settings"
-                  >
-                    <Settings className="w-4 h-4" />
-                  </button>
-                </div>
-                
-                <div className="w-px h-6 bg-stone-200"></div>
-
-                <button
-                  onClick={() => supabase.auth.signOut()}
-                  className="flex items-center gap-2 px-4 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 font-medium rounded-md transition-colors"
-                >
-                  <LogOut className="w-4 h-4" />
-                  <span className="hidden sm:inline">Logout</span>
-                </button>
-              </>
+              <ProfileDropdown 
+                session={session} 
+                supabase={supabase} 
+                onShowSettings={() => setShowSettings(true)} 
+                onShowUsage={() => setShowUsage(true)}
+              />
             )}
           </div>
         )}
@@ -171,11 +160,11 @@ function App() {
           {!easyMode && (
             <aside className="hidden md:block w-80 border-r border-[#561C24] min-h-[calc(100vh-80px)] p-8 bg-[#3E1519] text-[#E5DACD] shadow-[20px_0_40px_-20px_rgba(0,0,0,0.4)] relative z-20">
               <div className="flex items-center justify-between mb-8 pb-4 border-b border-[#561C24]">
-                <h3 className="font-bold text-white font-serif text-xl tracking-wide">My Circles</h3>
+                <h3 className="font-bold text-white font-serif text-xl tracking-wide">{t('nav.my_circles')}</h3>
                 <button 
                   onClick={() => setShowGroupsModal(true)}
                   className="w-8 h-8 rounded-full bg-[#2B0E11] hover:bg-[#c9a174] flex items-center justify-center text-[#c9a174] hover:text-[#1e1a17] transition-all border border-[#561C24] hover:border-transparent shadow-inner font-bold"
-                  title="Add/Join Circle"
+                  title={t('nav.join_create')}
                 >
                   +
                 </button>
@@ -187,24 +176,24 @@ function App() {
                   className={`cursor-pointer px-4 py-3 rounded-xl shadow-md text-sm font-bold flex items-center gap-3 transition-all ${activeView === 'all' ? 'bg-[#c9a174] text-[#1e1a17] scale-[1.02]' : 'bg-[#2B0E11] border border-white/5 text-[#D6C2A8] hover:bg-[#561C24] hover:text-white'}`}
                 >
                   <BookOpen className="w-5 h-5" />
-                  All Stories
+                  {t('nav.all_stories')}
                 </li>
                 <li 
                   onClick={() => setActiveView('my_memories')}
                   className={`cursor-pointer px-4 py-3 rounded-xl shadow-md text-sm font-bold flex items-center gap-3 transition-all ${activeView === 'my_memories' ? 'bg-[#c9a174] text-[#1e1a17] scale-[1.02]' : 'bg-[#2B0E11] border border-white/5 text-[#D6C2A8] hover:bg-[#561C24] hover:text-white'}`}
                 >
                   <User className="w-5 h-5" />
-                  My Memories
+                  {t('nav.my_memories')}
                 </li>
                 <li 
                   onClick={() => setShowSocialCenter(true)}
                   className="cursor-pointer px-4 py-3 rounded-xl shadow-md text-sm font-bold flex items-center gap-3 transition-all bg-[#2B0E11] border border-white/5 text-[#D6C2A8] hover:bg-[#561C24] hover:text-white"
                 >
                   <Users className={`w-5 h-5 ${activeView !== 'my_memories' && activeView !== 'all' ? 'text-[#c9a174]' : ''}`} />
-                  My Friends
+                  {t('nav.my_friends')}
                 </li>
                 
-                <div className="pt-6 pb-2 text-xs font-bold text-[#c9a174] uppercase tracking-[0.2em]">Family Circles</div>
+                <div className="pt-6 pb-2 text-xs font-bold text-[#c9a174] uppercase tracking-[0.2em]">{t('nav.family_circles')}</div>
                 
                 
                 {groups.map(g => (
@@ -218,14 +207,14 @@ function App() {
                   </li>
                 ))}
                 {groups.length === 0 && (
-                  <li className="text-sm text-[#D6C2A8] italic text-center py-6 border border-dashed border-[#561C24] rounded-xl font-medium">No circles yet.</li>
+                  <li className="text-sm text-[#D6C2A8] italic text-center py-6 border border-dashed border-[#561C24] rounded-xl font-medium">{t('nav.no_circles')}</li>
                 )}
               </ul>
               <button 
                 onClick={() => setShowGroupsModal(true)}
                 className="mt-6 w-full py-4 border-2 border-dashed border-[#561C24] rounded-xl text-[#c9a174] text-sm font-bold hover:bg-[#c9a174] hover:border-transparent hover:text-[#1e1a17] transition-colors uppercase tracking-widest"
               >
-                + Join / Create
+                {t('nav.join_create')}
               </button>
             </aside>
           )}
@@ -249,6 +238,10 @@ function App() {
 
       {showSettings && (
         <SettingsModal session={session} onClose={() => setShowSettings(false)} />
+      )}
+
+      {showUsage && (
+        <UsageModal session={session} onClose={() => setShowUsage(false)} />
       )}
       
       {showGroupsModal && (

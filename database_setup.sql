@@ -145,21 +145,110 @@ CREATE POLICY "Friend requests read" ON public.friend_requests FOR SELECT USING 
 
 
 -------------------------------------------------------------------------------
--- 8. BACKGROUND TASKS TABLE
+-- 8. BACKGROUND TASKS & WORKER QUEUE
 -------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.background_tasks (
-    id UUID PRIMARY KEY,
-    status TEXT NOT NULL,
-    result JSONB,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    task_type TEXT NOT NULL, -- 'tts_generation', 'image_generation'
+    payload JSONB NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending', -- 'pending', 'processing', 'completed', 'failed'
+    locked_at TIMESTAMP WITH TIME ZONE,
+    retry_count INT DEFAULT 0,
+    error_message TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Enable RLS for tasks
 ALTER TABLE public.background_tasks ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Tasks read" ON public.background_tasks FOR SELECT USING (true);
 
+-- RPC: Atomic Task Claiming (FOR UPDATE SKIP LOCKED)
+CREATE OR REPLACE FUNCTION public.claim_task(p_task_type TEXT)
+RETURNS SETOF public.background_tasks AS $$
+DECLARE
+  v_task_id UUID;
+BEGIN
+  UPDATE public.background_tasks
+  SET status = 'processing',
+      locked_at = NOW(),
+      updated_at = NOW()
+  WHERE id = (
+    SELECT id
+    FROM public.background_tasks
+    WHERE status = 'pending' AND task_type = p_task_type
+    ORDER BY created_at ASC
+    LIMIT 1
+    FOR UPDATE SKIP LOCKED
+  )
+  RETURNING id INTO v_task_id;
+
+  IF v_task_id IS NOT NULL THEN
+    RETURN QUERY SELECT * FROM public.background_tasks WHERE id = v_task_id;
+  END IF;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- RPC: Specific TTS Task Claiming (Legacy compatibility)
+CREATE OR REPLACE FUNCTION public.claim_tts_task()
+RETURNS SETOF public.background_tasks AS $$
+BEGIN
+  RETURN QUERY SELECT * FROM public.claim_task('tts_generation');
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 
 -------------------------------------------------------------------------------
--- 9. GENERATE INVITE CODE FUNCTION
+-- 9. USAGE TRACKING & STATISTICS
+-------------------------------------------------------------------------------
+
+-- Storage Statistics Table
+CREATE TABLE IF NOT EXISTS public.user_storage_stats (
+    user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    audio_bytes BIGINT NOT NULL DEFAULT 0,
+    narrator_bytes BIGINT NOT NULL DEFAULT 0,
+    cover_bytes BIGINT NOT NULL DEFAULT 0,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+);
+
+-- AI Usage Logging Table
+CREATE TABLE IF NOT EXISTS public.ai_usage_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    service_type TEXT NOT NULL, -- 'ghostwriter', 'artist', 'narrator'
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_ai_usage_logs_user_date ON public.ai_usage_logs(user_id, created_at);
+
+-- RLS for Usage Tables
+ALTER TABLE public.user_storage_stats ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ai_usage_logs ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view their own storage stats" ON public.user_storage_stats FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can view their own AI logs" ON public.ai_usage_logs FOR SELECT USING (auth.uid() = user_id);
+
+-- RPC: Atomic Storage Increments
+CREATE OR REPLACE FUNCTION increment_user_storage(p_user_id UUID, p_col_name TEXT, p_delta BIGINT)
+RETURNS VOID AS $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM public.user_storage_stats WHERE user_id = p_user_id) THEN
+        INSERT INTO public.user_storage_stats (user_id) VALUES (p_user_id);
+    END IF;
+
+    IF p_col_name = 'audio_bytes' THEN
+        UPDATE public.user_storage_stats SET audio_bytes = GREATEST(0, COALESCE(audio_bytes, 0) + p_delta) WHERE user_id = p_user_id;
+    ELSIF p_col_name = 'narrator_bytes' THEN
+        UPDATE public.user_storage_stats SET narrator_bytes = GREATEST(0, COALESCE(narrator_bytes, 0) + p_delta) WHERE user_id = p_user_id;
+    ELSIF p_col_name = 'cover_bytes' THEN
+        UPDATE public.user_storage_stats SET cover_bytes = GREATEST(0, COALESCE(cover_bytes, 0) + p_delta) WHERE user_id = p_user_id;
+    END IF;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+
+-------------------------------------------------------------------------------
+-- 10. UTILITY FUNCTIONS
 -------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.generate_invite_code()
 RETURNS text AS $$
@@ -182,7 +271,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 
 -------------------------------------------------------------------------------
--- 10. STORAGE BUCKETS SETUP
+-- 11. STORAGE BUCKETS SETUP
 -------------------------------------------------------------------------------
 -- Note: Requires superuser or specific Supabase privileges to execute.
 -- In Supabase, the storage schema handles file storage.

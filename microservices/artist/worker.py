@@ -52,6 +52,7 @@ async def daemon_loop():
             payload = task.get("payload", {})
             
             story_id = payload.get("story_id")
+            user_id = payload.get("user_id") # Get from payload first
             title = payload.get("title", "")
             context = payload.get("context", "")
             
@@ -63,11 +64,20 @@ async def daemon_loop():
             print(f"--> [ARTIST] Picked up canvas {task_id} for Story {story_id} ({title})")
             
             story_res = supabase.table("stories").select("user_id, cover_url").eq("id", story_id).execute()
-            user_id = "anonymous"
             old_cover_url = None
+            old_size = 0
             if story_res.data:
-                user_id = story_res.data[0].get("user_id", "anonymous")
+                if not user_id:
+                    user_id = story_res.data[0].get("user_id", "anonymous")
                 old_cover_url = story_res.data[0].get("cover_url")
+                if old_cover_url and "http" in old_cover_url:
+                    import urllib.request
+                    try:
+                        req = urllib.request.Request(old_cover_url, method='HEAD')
+                        with urllib.request.urlopen(req, timeout=5) as resp:
+                            old_size = int(resp.headers.get('Content-Length', 0))
+                    except Exception:
+                        pass
             
             # 2. Generate Image
             print(f"Painting image for: {title}...", flush=True)
@@ -97,6 +107,25 @@ async def daemon_loop():
                         print(f"DEBUG: Deleted old orphaned cover {path}")
                 except Exception as e:
                     print(f"DEBUG: Failed to delete old cover {old_cover_url}: {e}")
+                    
+            # Update Usage Stats
+            if user_id != "anonymous":
+                new_size = os.path.getsize(jpg_path) if os.path.exists(jpg_path) else 0
+                delta = new_size - old_size
+                try:
+                    supabase.rpc("increment_user_storage", {
+                        "p_user_id": user_id,
+                        "p_col_name": "cover_bytes",
+                        "p_delta": delta
+                    }).execute()
+                    
+                    supabase.table("ai_usage_logs").insert({
+                        "user_id": user_id,
+                        "service_type": "artist"
+                    }).execute()
+                    print(f"DEBUG: Logged AI usage and storage delta ({delta} bytes) for user {user_id}")
+                except Exception as e:
+                    print(f"DEBUG: Failed to update usage stats: {e}")
             
             # 5. Complete the Task
             supabase.table("background_tasks").update({"status": "completed"}).eq("id", task_id).execute()
