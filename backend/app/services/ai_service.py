@@ -5,11 +5,11 @@ from typing import Any
 
 from google import genai
 from google.genai import types as genai_types
-from google.genai.errors import ClientError
+from google.genai.errors import ClientError, ServerError
 
 from app.core.config import settings
 
-_GEMINI_RATE_LIMIT_RETRIES = 3
+_GEMINI_RATE_LIMIT_RETRIES = 5
 
 # Gemini File API + multimodal: correct MIME helps ingestion (esp. m4a/webm).
 _AUDIO_MIME_BY_SUFFIX: dict[str, str] = {
@@ -41,16 +41,18 @@ def _validate_audio_file(file_path: str) -> None:
         raise RuntimeError("Audio file is empty")
 
 
-def _is_too_many_requests(exc: ClientError) -> bool:
-    if getattr(exc, "code", None) == 429:
+def _is_retryable_error(exc: Exception) -> bool:
+    """Checks if the error is a 429 (Rate Limit) or 503 (Service Unavailable)."""
+    code = getattr(exc, "status_code", None) or getattr(exc, "code", None)
+    if code in [429, 503]:
         return True
-    msg = (getattr(exc, "message", None) or str(exc)).lower()
-    return "too many requests" in msg or "resource_exhausted" in msg
+    msg = str(exc).lower()
+    return any(keyword in msg for keyword in ["too many requests", "resource_exhausted", "unavailable", "overloaded"])
 
 
 def _rate_limit_delay_seconds(attempt_index: int) -> float:
-    """Short backoff: ~1s, 2s, 4s (capped) so the terminal shows a brief pause."""
-    return min(1.0 * (2**attempt_index), 8.0)
+    """Exponential backoff: 2s, 4s, 8s... capped at 15s."""
+    return min(2.0 * (2**attempt_index), 15.0)
 
 
 class GeminiRateLimitError(Exception):
@@ -120,11 +122,11 @@ Return valid JSON with exactly two keys: 'suggested_title' and 'cleaned_text'.
                 )
                 print("DEBUG: Gemini response received!", flush=True)
                 break
-            except ClientError as exc:
-                if _is_too_many_requests(exc):
+            except Exception as exc:
+                if _is_retryable_error(exc):
                     delay = _rate_limit_delay_seconds(attempt)
                     print(
-                        "Warning: Gemini API Too Many Requests (rate limit). "
+                        f"Warning: Gemini API retryable error ({exc}). "
                         f"Wait ~{delay:.0f}s, then retrying "
                         f"({attempt + 1}/{_GEMINI_RATE_LIMIT_RETRIES})...",
                         flush=True,
@@ -133,9 +135,9 @@ Return valid JSON with exactly two keys: 'suggested_title' and 'cleaned_text'.
                         time.sleep(delay)
                         continue
                     raise GeminiRateLimitError(
-                        "Gemini generate_content rate limited after retries"
+                        "Gemini generate_content failed after retries"
                     ) from exc
-                raise RuntimeError("Gemini audio processing failed") from exc
+                raise RuntimeError(f"Gemini audio processing failed: {exc}") from exc
 
         if response is None:
             raise RuntimeError("Gemini returned no response")
@@ -187,11 +189,11 @@ Return valid JSON with exactly two keys: 'suggested_title' and 'cleaned_text'.
                 )
                 print("DEBUG: Gemini response received!", flush=True)
                 break
-            except ClientError as exc:
-                if _is_too_many_requests(exc):
+            except Exception as exc:
+                if _is_retryable_error(exc):
                     delay = _rate_limit_delay_seconds(attempt)
                     print(
-                        "Warning: Gemini API Too Many Requests (rate limit). "
+                        f"Warning: Gemini API retryable error ({exc}). "
                         f"Wait ~{delay:.0f}s, then retrying "
                         f"({attempt + 1}/{_GEMINI_RATE_LIMIT_RETRIES})...",
                         flush=True,
@@ -200,9 +202,9 @@ Return valid JSON with exactly two keys: 'suggested_title' and 'cleaned_text'.
                         time.sleep(delay)
                         continue
                     raise GeminiRateLimitError(
-                        "Gemini generate_content rate limited after retries"
+                        "Gemini generate_content failed after retries"
                     ) from exc
-                raise RuntimeError("Gemini text processing failed") from exc
+                raise RuntimeError(f"Gemini text processing failed: {exc}") from exc
 
         if response is None:
             raise RuntimeError("Gemini returned no response")
